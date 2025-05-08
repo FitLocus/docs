@@ -1,0 +1,836 @@
+---
+title: 'Gerenciamento de Perfil'
+description: 'Endpoints para gerenciamento de perfil de usuário no FitLocus'
+---
+
+# Gerenciamento de Perfil
+
+Esta seção detalha os endpoints para visualização e atualização de perfis de usuário na plataforma FitLocus.
+
+## Visão Geral do Perfil
+
+O perfil de usuário no FitLocus contém informações pessoais, dados físicos, configurações de conta e detalhes de assinatura. Diferentes tipos de usuário (ALUNO e PERSONAL) têm campos específicos em seus perfis.
+
+## Obter Perfil do Usuário Autenticado
+
+### Endpoint
+
+```
+GET /users/profile
+```
+
+Este endpoint retorna o perfil completo do usuário autenticado.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/users/profile' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 123,
+  "name": "João Silva",
+  "email": "joao@exemplo.com",
+  "userType": "ALUNO",
+  "profilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/123.jpg",
+  "phone": "+5511999999999",
+  "birthDate": "1990-01-01",
+  "gender": "MASCULINO",
+  "height": 175,
+  "weight": 70.5,
+  "subscriptionType": "PREMIUM_MENSAL",
+  "subscriptionExpirationDate": "2023-12-31T23:59:59Z",
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-01-15T14:30:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Obter Perfil de Usuário Específico
+
+### Endpoint
+
+```
+GET /users/{id}
+```
+
+Este endpoint retorna o perfil de um usuário específico. Um personal trainer só pode acessar perfis de seus alunos vinculados.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do usuário |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/users/456' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 456,
+  "name": "Maria Oliveira",
+  "email": "maria@exemplo.com",
+  "userType": "ALUNO",
+  "profilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/456.jpg",
+  "phone": "+5511888888888",
+  "birthDate": "1995-05-15",
+  "gender": "FEMININO",
+  "height": 165,
+  "weight": 60.0,
+  "subscriptionType": "PREMIUM_ANUAL",
+  "subscriptionExpirationDate": "2024-12-31T23:59:59Z",
+  "createdAt": "2023-02-15T14:30:00Z",
+  "updatedAt": "2023-03-10T09:45:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Acesso negado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Usuário não encontrado",
+  "success": false
+}
+```
+
+## Atualizar Perfil do Usuário Autenticado
+
+### Endpoint
+
+```
+PUT /users/profile
+```
+
+Este endpoint permite atualizar o perfil do usuário autenticado.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os campos a serem atualizados:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| name | string | Não | Nome completo do usuário |
+| phone | string | Não | Número de telefone |
+| birthDate | string | Não | Data de nascimento (formato: YYYY-MM-DD) |
+| gender | string | Não | Gênero (MASCULINO, FEMININO, OUTRO) |
+| height | number | Não | Altura em centímetros |
+| weight | number | Não | Peso em quilogramas |
+
+### Exemplo de Requisição
+
+```bash
+curl -X PUT \
+  'http://localhost:8080/api/users/profile' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "João Silva",
+    "phone": "+5511999999999",
+    "birthDate": "1990-01-01",
+    "gender": "MASCULINO",
+    "height": 175,
+    "weight": 72.5
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 123,
+  "name": "João Silva",
+  "email": "joao@exemplo.com",
+  "userType": "ALUNO",
+  "profilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/123.jpg",
+  "phone": "+5511999999999",
+  "birthDate": "1990-01-01",
+  "gender": "MASCULINO",
+  "height": 175,
+  "weight": 72.5,
+  "subscriptionType": "PREMIUM_MENSAL",
+  "subscriptionExpirationDate": "2023-12-31T23:59:59Z",
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-05-20T16:45:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "height",
+      "message": "Altura deve ser um número positivo"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Atualizar Nome do Usuário
+
+### Endpoint
+
+```
+PATCH /users/{id}
+```
+
+Este endpoint permite atualizar apenas o nome de um usuário específico.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do usuário |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com o campo a ser atualizado:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| name | string | Sim | Novo nome completo do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X PATCH \
+  'http://localhost:8080/api/users/123' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "João Silva Santos"
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 123,
+  "name": "João Silva Santos",
+  "email": "joao@exemplo.com",
+  "userType": "ALUNO",
+  "profilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/123.jpg",
+  "phone": "+5511999999999",
+  "birthDate": "1990-01-01",
+  "gender": "MASCULINO",
+  "height": 175,
+  "weight": 72.5,
+  "subscriptionType": "PREMIUM_MENSAL",
+  "subscriptionExpirationDate": "2023-12-31T23:59:59Z",
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-05-20T16:45:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Nome não pode estar vazio",
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Acesso negado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Usuário não encontrado",
+  "success": false
+}
+```
+
+## Atualizar Foto de Perfil
+
+### Endpoint
+
+```
+POST /users/{userId}/update-profile-photo
+```
+
+Este endpoint permite atualizar a foto de perfil de um usuário.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| userId | number | ID do usuário |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | multipart/form-data | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+A requisição deve ser enviada como `multipart/form-data` com o seguinte campo:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| file | file | Sim | Arquivo de imagem (JPG, PNG ou GIF, máx. 5MB) |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/123/update-profile-photo' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -F 'file=@/caminho/para/foto.jpg'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 123,
+  "name": "João Silva Santos",
+  "email": "joao@exemplo.com",
+  "userType": "ALUNO",
+  "profilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/123.jpg?v=1684598700",
+  "phone": "+5511999999999",
+  "birthDate": "1990-01-01",
+  "gender": "MASCULINO",
+  "height": 175,
+  "weight": 72.5,
+  "subscriptionType": "PREMIUM_MENSAL",
+  "subscriptionExpirationDate": "2023-12-31T23:59:59Z",
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-05-20T16:45:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Arquivo inválido. Apenas imagens JPG, PNG ou GIF são permitidas",
+  "success": false
+}
+```
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Tamanho máximo de arquivo excedido (5MB)",
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Acesso negado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Usuário não encontrado",
+  "success": false
+}
+```
+
+## Obter Métricas do Usuário
+
+### Endpoint
+
+```
+GET /users/metrics
+```
+
+Este endpoint retorna métricas e estatísticas do usuário autenticado.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/users/metrics' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "userId": 123,
+  "totalTrainings": 45,
+  "completedTrainings": 42,
+  "totalExercises": 320,
+  "totalTime": 3600,
+  "weeklyProgress": [
+    {
+      "date": "2023-05-14",
+      "trainingsCount": 2,
+      "totalTime": 120
+    },
+    {
+      "date": "2023-05-15",
+      "trainingsCount": 1,
+      "totalTime": 60
+    },
+    {
+      "date": "2023-05-16",
+      "trainingsCount": 0,
+      "totalTime": 0
+    },
+    {
+      "date": "2023-05-17",
+      "trainingsCount": 1,
+      "totalTime": 45
+    },
+    {
+      "date": "2023-05-18",
+      "trainingsCount": 2,
+      "totalTime": 90
+    },
+    {
+      "date": "2023-05-19",
+      "trainingsCount": 1,
+      "totalTime": 60
+    },
+    {
+      "date": "2023-05-20",
+      "trainingsCount": 0,
+      "totalTime": 0
+    }
+  ],
+  "weightHistory": [
+    {
+      "date": "2023-01-01",
+      "value": 75.0
+    },
+    {
+      "date": "2023-02-01",
+      "value": 73.5
+    },
+    {
+      "date": "2023-03-01",
+      "value": 72.0
+    },
+    {
+      "date": "2023-04-01",
+      "value": 71.0
+    },
+    {
+      "date": "2023-05-01",
+      "value": 70.5
+    }
+  ],
+  "personalRecords": [
+    {
+      "exerciseName": "Supino Reto",
+      "value": 100,
+      "unit": "kg",
+      "date": "2023-04-15"
+    },
+    {
+      "exerciseName": "Agachamento",
+      "value": 120,
+      "unit": "kg",
+      "date": "2023-05-10"
+    }
+  ]
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Implementação no Frontend
+
+### Componente de Perfil
+
+```tsx
+// Exemplo de componente de perfil em React
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const ProfilePage = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await axios.get('/users/profile');
+        setUser(response.data);
+        setLoading(false);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Erro ao carregar perfil');
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, []);
+  
+  if (loading) return <div>Carregando...</div>;
+  if (error) return <div>Erro: {error}</div>;
+  if (!user) return <div>Usuário não encontrado</div>;
+  
+  return (
+    <div className="profile-container">
+      <div className="profile-header">
+        <div className="profile-picture">
+          <img src={user.profilePicture || '/default-avatar.png'} alt="Foto de perfil" />
+          <button className="upload-button">Alterar foto</button>
+        </div>
+        <div className="profile-info">
+          <h1>{user.name}</h1>
+          <p>{user.email}</p>
+          <p>Tipo: {user.userType === 'ALUNO' ? 'Aluno' : 'Personal Trainer'}</p>
+          <p>Plano: {user.subscriptionType.replace('_', ' ').toLowerCase()}</p>
+          {user.subscriptionExpirationDate && (
+            <p>Validade: {new Date(user.subscriptionExpirationDate).toLocaleDateString()}</p>
+          )}
+        </div>
+      </div>
+      
+      <div className="profile-details">
+        <h2>Dados Pessoais</h2>
+        <form>
+          <div className="form-group">
+            <label>Nome</label>
+            <input type="text" defaultValue={user.name} />
+          </div>
+          <div className="form-group">
+            <label>Telefone</label>
+            <input type="text" defaultValue={user.phone || ''} />
+          </div>
+          <div className="form-group">
+            <label>Data de Nascimento</label>
+            <input type="date" defaultValue={user.birthDate || ''} />
+          </div>
+          <div className="form-group">
+            <label>Gênero</label>
+            <select defaultValue={user.gender || ''}>
+              <option value="">Selecione</option>
+              <option value="MASCULINO">Masculino</option>
+              <option value="FEMININO">Feminino</option>
+              <option value="OUTRO">Outro</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Altura (cm)</label>
+            <input type="number" defaultValue={user.height || ''} />
+          </div>
+          <div className="form-group">
+            <label>Peso (kg)</label>
+            <input type="number" step="0.1" defaultValue={user.weight || ''} />
+          </div>
+          <button type="submit">Salvar Alterações</button>
+        </form>
+      </div>
+      
+      {user.userType === 'PERSONAL' && (
+        <div className="subscription-section">
+          <h2>Seu Plano</h2>
+          <div className="current-plan">
+            <h3>{user.subscriptionType.replace('_', ' ').toLowerCase()}</h3>
+            <p>Limite de alunos: {getStudentLimit(user.subscriptionType)}</p>
+            <p>Validade: {new Date(user.subscriptionExpirationDate).toLocaleDateString()}</p>
+          </div>
+          <div className="upgrade-options">
+            <h3>Opções de Upgrade</h3>
+            <div className="plan-cards">
+              {/* Cards de planos disponíveis para upgrade */}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Função auxiliar para determinar o limite de alunos com base no tipo de assinatura
+const getStudentLimit = (subscriptionType) => {
+  switch (subscriptionType) {
+    case 'PERSONAL_INICIANTE': return '10 alunos';
+    case 'PERSONAL_BASIC': return '50 alunos';
+    case 'PERSONAL_INTERMEDIARIO': return '100 alunos';
+    case 'PERSONAL_AVANCADO': return '200 alunos';
+    case 'PERSONAL_ILIMITADO': return 'Ilimitado';
+    default: return 'N/A';
+  }
+};
+
+export default ProfilePage;
+```
+
+### Upload de Foto de Perfil
+
+```tsx
+// Componente para upload de foto de perfil
+import React, { useState } from 'react';
+import axios from 'axios';
+
+const ProfilePhotoUploader = ({ userId, onSuccess }) => {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    
+    // Validação básica do arquivo
+    if (selectedFile) {
+      if (!['image/jpeg', 'image/png', 'image/gif'].includes(selectedFile.type)) {
+        setError('Formato de arquivo inválido. Use JPG, PNG ou GIF.');
+        return;
+      }
+      
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        setError('Arquivo muito grande. Tamanho máximo: 5MB.');
+        return;
+      }
+      
+      setFile(selectedFile);
+      setError(null);
+    }
+  };
+  
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Selecione um arquivo para upload.');
+      return;
+    }
+    
+    setUploading(true);
+    setError(null);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await axios.post(
+        `/users/${userId}/update-profile-photo`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+      
+      setUploading(false);
+      onSuccess(response.data);
+    } catch (err) {
+      setUploading(false);
+      setError(err.response?.data?.message || 'Erro ao fazer upload da foto');
+    }
+  };
+  
+  return (
+    <div className="photo-uploader">
+      <input 
+        type="file" 
+        accept="image/jpeg,image/png,image/gif" 
+        onChange={handleFileChange} 
+      />
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <button 
+        onClick={handleUpload} 
+        disabled={!file || uploading}
+      >
+        {uploading ? 'Enviando...' : 'Enviar Foto'}
+      </button>
+    </div>
+  );
+};
+
+export default ProfilePhotoUploader;
+```
+
+## Considerações de Design
+
+A página de perfil do FitLocus segue as diretrizes de design da plataforma:
+
+- **Cores**: Fundo escuro (#202020), elementos de destaque em verde (#B4ED00), texto em branco (#F9F9F9)
+- **Tipografia**: Hanken Grotesk para texto e SUPERINE para títulos
+- **Layout**: Design minimalista com espaçamento generoso e hierarquia clara
+- **Componentes**: Campos de formulário com bordas arredondadas, botões com feedback visual ao interagir
+
+Para mais detalhes sobre o design, consulte as [diretrizes de marca](/design/brand-guidelines).
+
+## Considerações de Segurança
+
+1. **Validação de Dados**: Todos os dados de entrada são validados tanto no frontend quanto no backend para prevenir injeção de dados maliciosos.
+
+2. **Controle de Acesso**: Verificações rigorosas garantem que um usuário só possa acessar e modificar seu próprio perfil ou, no caso de personal trainers, os perfis de seus alunos vinculados.
+
+3. **Validação de Arquivos**: Uploads de imagem são validados quanto ao tipo, tamanho e conteúdo para prevenir ataques.
+
+4. **Sanitização de Dados**: Todos os dados de entrada são sanitizados antes de serem armazenados ou exibidos.
+
+5. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS para proteger dados sensíveis durante a transmissão.
+
+## Troubleshooting
+
+### Problemas Comuns
+
+1. **"Acesso negado"**: Verifique se você está tentando acessar seu próprio perfil ou, se for um personal trainer, o perfil de um aluno vinculado a você.
+
+2. **"Arquivo inválido"**: Certifique-se de que a imagem está em um dos formatos permitidos (JPG, PNG, GIF) e não excede 5MB.
+
+3. **"Erro ao carregar perfil"**: Verifique sua conexão com a internet e se o token JWT é válido. Tente fazer login novamente.
+
+4. **"Erro ao atualizar perfil"**: Verifique se os dados fornecidos são válidos e estão no formato correto.
+
+### Depuração
+
+Para depurar problemas com o perfil:
+
+1. Verifique os logs do console para mensagens de erro detalhadas
+2. Utilize ferramentas como o Postman para testar os endpoints diretamente
+3. Verifique se o token JWT está sendo enviado corretamente no cabeçalho Authorization
+4. Confirme que os dados enviados estão no formato correto e dentro dos limites permitidos

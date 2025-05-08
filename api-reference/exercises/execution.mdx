@@ -1,0 +1,922 @@
+---
+title: 'Execução e Progresso de Exercícios'
+description: 'Endpoints para registro e acompanhamento de execuções de exercícios no FitLocus'
+---
+
+# Execução e Progresso de Exercícios
+
+Esta seção detalha os endpoints para registro, acompanhamento e análise de execuções de exercícios na plataforma FitLocus.
+
+## Visão Geral
+
+O registro de execuções de exercícios é fundamental para o acompanhamento do progresso dos usuários. Cada vez que um usuário realiza um exercício como parte de um treino, os detalhes dessa execução (séries, repetições, cargas, etc.) são registrados para análise posterior.
+
+## Registrar Execução de Exercício
+
+### Endpoint
+
+```
+POST /exercises/{id}/execution
+```
+
+Este endpoint permite registrar a execução de um exercício específico.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do exercício |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| trainingId | number | Sim | ID do treino ao qual a execução está associada |
+| sets | array | Sim | Lista de séries realizadas |
+| notes | string | Não | Observações sobre a execução |
+| duration | number | Não | Duração da execução em segundos |
+
+Cada objeto na lista `sets` deve conter:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| repetitions | number | Sim | Número de repetições realizadas |
+| weight | number | Não | Carga utilizada (em kg) |
+| completed | boolean | Sim | Se a série foi concluída |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/exercises/123/execution' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "trainingId": 101,
+    "sets": [
+      {
+        "repetitions": 12,
+        "weight": 60.0,
+        "completed": true
+      },
+      {
+        "repetitions": 10,
+        "weight": 65.0,
+        "completed": true
+      },
+      {
+        "repetitions": 8,
+        "weight": 70.0,
+        "completed": true
+      }
+    ],
+    "notes": "Sentindo boa ativação no peitoral",
+    "duration": 300
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "id": 789,
+  "exerciseId": 123,
+  "userId": 456,
+  "trainingId": 101,
+  "sets": [
+    {
+      "repetitions": 12,
+      "weight": 60.0,
+      "completed": true
+    },
+    {
+      "repetitions": 10,
+      "weight": 65.0,
+      "completed": true
+    },
+    {
+      "repetitions": 8,
+      "weight": 70.0,
+      "completed": true
+    }
+  ],
+  "notes": "Sentindo boa ativação no peitoral",
+  "executedAt": "2023-05-20T15:30:00Z",
+  "duration": 300,
+  "personalRecord": true
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "sets",
+      "message": "Deve haver pelo menos uma série"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Exercício não encontrado",
+  "success": false
+}
+```
+
+## Listar Execuções de um Exercício
+
+### Endpoint
+
+```
+GET /exercises/{id}/executions
+```
+
+Este endpoint retorna uma lista paginada de execuções de um exercício específico.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do exercício |
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| userId | number | Não | Filtrar por usuário |
+| startDate | string | Não | Data inicial (formato: YYYY-MM-DD) |
+| endDate | string | Não | Data final (formato: YYYY-MM-DD) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: executedAt,desc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises/123/executions?userId=456&startDate=2023-01-01&endDate=2023-05-31&page=0&size=10&sort=executedAt,desc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 789,
+      "exerciseId": 123,
+      "userId": 456,
+      "trainingId": 101,
+      "sets": [
+        {
+          "repetitions": 12,
+          "weight": 60.0,
+          "completed": true
+        },
+        {
+          "repetitions": 10,
+          "weight": 65.0,
+          "completed": true
+        },
+        {
+          "repetitions": 8,
+          "weight": 70.0,
+          "completed": true
+        }
+      ],
+      "notes": "Sentindo boa ativação no peitoral",
+      "executedAt": "2023-05-20T15:30:00Z",
+      "duration": 300,
+      "personalRecord": true
+    },
+    // Mais execuções...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 3,
+  "totalElements": 25,
+  "last": false,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 10,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Acesso negado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Exercício não encontrado",
+  "success": false
+}
+```
+
+## Listar Execuções de Exercícios de um Usuário
+
+### Endpoint
+
+```
+GET /exercises/executions/user/{userId}
+```
+
+Este endpoint retorna uma lista paginada de execuções de exercícios de um usuário específico.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| userId | number | ID do usuário |
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| exerciseId | number | Não | Filtrar por exercício |
+| startDate | string | Não | Data inicial (formato: YYYY-MM-DD) |
+| endDate | string | Não | Data final (formato: YYYY-MM-DD) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: executedAt,desc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises/executions/user/456?startDate=2023-01-01&endDate=2023-05-31&page=0&size=10&sort=executedAt,desc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 789,
+      "exerciseId": 123,
+      "exerciseName": "Supino Inclinado",
+      "userId": 456,
+      "trainingId": 101,
+      "trainingName": "Treino A - Peito e Tríceps",
+      "sets": [
+        {
+          "repetitions": 12,
+          "weight": 60.0,
+          "completed": true
+        },
+        {
+          "repetitions": 10,
+          "weight": 65.0,
+          "completed": true
+        },
+        {
+          "repetitions": 8,
+          "weight": 70.0,
+          "completed": true
+        }
+      ],
+      "notes": "Sentindo boa ativação no peitoral",
+      "executedAt": "2023-05-20T15:30:00Z",
+      "duration": 300,
+      "personalRecord": true
+    },
+    // Mais execuções...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 5,
+  "totalElements": 42,
+  "last": false,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 10,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Acesso negado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Usuário não encontrado",
+  "success": false
+}
+```
+
+## Obter Recordes Pessoais
+
+### Endpoint
+
+```
+GET /exercises/personal-records
+```
+
+Este endpoint retorna os recordes pessoais do usuário autenticado para cada exercício.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises/personal-records' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+[
+  {
+    "exerciseId": 123,
+    "exerciseName": "Supino Reto",
+    "value": 100.0,
+    "unit": "kg",
+    "date": "2023-04-15T10:30:00Z"
+  },
+  {
+    "exerciseId": 124,
+    "exerciseName": "Agachamento",
+    "value": 120.0,
+    "unit": "kg",
+    "date": "2023-05-10T14:45:00Z"
+  },
+  {
+    "exerciseId": 125,
+    "exerciseName": "Levantamento Terra",
+    "value": 140.0,
+    "unit": "kg",
+    "date": "2023-03-22T16:15:00Z"
+  }
+]
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Obter Progresso de um Exercício
+
+### Endpoint
+
+```
+GET /exercises/{id}/progress
+```
+
+Este endpoint retorna o progresso do usuário autenticado em um exercício específico ao longo do tempo.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do exercício |
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| startDate | string | Não | Data inicial (formato: YYYY-MM-DD) |
+| endDate | string | Não | Data final (formato: YYYY-MM-DD) |
+| interval | string | Não | Intervalo de agrupamento (DAY, WEEK, MONTH) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises/123/progress?startDate=2023-01-01&endDate=2023-05-31&interval=WEEK' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "exerciseId": 123,
+  "exerciseName": "Supino Reto",
+  "progressData": [
+    {
+      "date": "2023-01-01",
+      "maxWeight": 80.0,
+      "totalVolume": 2400.0,
+      "totalSets": 9,
+      "totalReps": 30
+    },
+    {
+      "date": "2023-01-08",
+      "maxWeight": 85.0,
+      "totalVolume": 2550.0,
+      "totalSets": 9,
+      "totalReps": 30
+    },
+    {
+      "date": "2023-01-15",
+      "maxWeight": 87.5,
+      "totalVolume": 2625.0,
+      "totalSets": 9,
+      "totalReps": 30
+    },
+    // Mais dados de progresso...
+  ],
+  "personalRecord": {
+    "value": 100.0,
+    "unit": "kg",
+    "date": "2023-04-15T10:30:00Z"
+  }
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Exercício não encontrado",
+  "success": false
+}
+```
+
+## Implementação no Frontend
+
+### Componente de Registro de Execução
+
+```tsx
+// Exemplo de componente de registro de execução em React
+import React, { useState } from 'react';
+import axios from 'axios';
+
+const ExerciseExecution = ({ exerciseId, trainingId, onSuccess }) => {
+  const [sets, setSets] = useState([
+    { repetitions: 12, weight: 0, completed: false }
+  ]);
+  const [notes, setNotes] = useState('');
+  const [duration, setDuration] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
+  const handleAddSet = () => {
+    setSets([...sets, { repetitions: 12, weight: 0, completed: false }]);
+  };
+  
+  const handleRemoveSet = (index) => {
+    const newSets = [...sets];
+    newSets.splice(index, 1);
+    setSets(newSets);
+  };
+  
+  const handleSetChange = (index, field, value) => {
+    const newSets = [...sets];
+    newSets[index] = {
+      ...newSets[index],
+      [field]: field === 'completed' ? value : Number(value)
+    };
+    setSets(newSets);
+  };
+  
+  const handleSubmit = async () => {
+    if (sets.length === 0) {
+      setError('Adicione pelo menos uma série');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await axios.post(`/exercises/${exerciseId}/execution`, {
+        trainingId,
+        sets,
+        notes,
+        duration
+      });
+      
+      setLoading(false);
+      onSuccess(response.data);
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.message || 'Erro ao registrar execução');
+    }
+  };
+  
+  return (
+    <div className="exercise-execution">
+      <h3>Registrar Execução</h3>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="sets-container">
+        <div className="sets-header">
+          <span>Série</span>
+          <span>Repetições</span>
+          <span>Carga (kg)</span>
+          <span>Concluída</span>
+          <span></span>
+        </div>
+        
+        {sets.map((set, index) => (
+          <div key={index} className="set-row">
+            <span>{index + 1}</span>
+            <input
+              type="number"
+              min="1"
+              value={set.repetitions}
+              onChange={(e) => handleSetChange(index, 'repetitions', e.target.value)}
+            />
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={set.weight}
+              onChange={(e) => handleSetChange(index, 'weight', e.target.value)}
+            />
+            <input
+              type="checkbox"
+              checked={set.completed}
+              onChange={(e) => handleSetChange(index, 'completed', e.target.checked)}
+            />
+            <button
+              type="button"
+              onClick={() => handleRemoveSet(index)}
+              disabled={sets.length === 1}
+            >
+              Remover
+            </button>
+          </div>
+        ))}
+        
+        <button type="button" onClick={handleAddSet}>
+          Adicionar Série
+        </button>
+      </div>
+      
+      <div className="form-group">
+        <label>Duração (segundos)</label>
+        <input
+          type="number"
+          min="0"
+          value={duration}
+          onChange={(e) => setDuration(Number(e.target.value))}
+        />
+      </div>
+      
+      <div className="form-group">
+        <label>Observações</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Opcional: Adicione observações sobre a execução"
+        />
+      </div>
+      
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={loading}
+      >
+        {loading ? 'Registrando...' : 'Registrar Execução'}
+      </button>
+    </div>
+  );
+};
+
+export default ExerciseExecution;
+```
+
+### Componente de Visualização de Progresso
+
+```tsx
+// Exemplo de componente de visualização de progresso em React
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const ExerciseProgress = ({ exerciseId }) => {
+  const [progress, setProgress] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [interval, setInterval] = useState('WEEK');
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0]
+  });
+  
+  useEffect(() => {
+    const fetchProgress = async () => {
+      try {
+        setLoading(true);
+        
+        const response = await axios.get(`/exercises/${exerciseId}/progress`, {
+          params: {
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+            interval
+          }
+        });
+        
+        setProgress(response.data);
+        setLoading(false);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Erro ao carregar progresso');
+        setLoading(false);
+      }
+    };
+    
+    fetchProgress();
+  }, [exerciseId, interval, dateRange]);
+  
+  const handleIntervalChange = (e) => {
+    setInterval(e.target.value);
+  };
+  
+  const handleDateChange = (field, value) => {
+    setDateRange(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+  
+  if (loading) return <div>Carregando...</div>;
+  if (error) return <div>Erro: {error}</div>;
+  if (!progress) return <div>Nenhum dado de progresso disponível</div>;
+  
+  return (
+    <div className="exercise-progress">
+      <h3>Progresso: {progress.exerciseName}</h3>
+      
+      <div className="filters">
+        <div className="form-group">
+          <label>Intervalo</label>
+          <select value={interval} onChange={handleIntervalChange}>
+            <option value="DAY">Diário</option>
+            <option value="WEEK">Semanal</option>
+            <option value="MONTH">Mensal</option>
+          </select>
+        </div>
+        
+        <div className="form-group">
+          <label>Data Inicial</label>
+          <input
+            type="date"
+            value={dateRange.startDate}
+            onChange={(e) => handleDateChange('startDate', e.target.value)}
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Data Final</label>
+          <input
+            type="date"
+            value={dateRange.endDate}
+            onChange={(e) => handleDateChange('endDate', e.target.value)}
+          />
+        </div>
+      </div>
+      
+      <div className="personal-record">
+        <h4>Recorde Pessoal</h4>
+        <p>
+          {progress.personalRecord.value} {progress.personalRecord.unit} em{' '}
+          {new Date(progress.personalRecord.date).toLocaleDateString()}
+        </p>
+      </div>
+      
+      <div className="progress-chart">
+        <h4>Evolução de Carga Máxima</h4>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart
+            data={progress.progressData}
+            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="maxWeight"
+              stroke="#B4ED00"
+              name="Carga Máxima (kg)"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      
+      <div className="progress-chart">
+        <h4>Evolução de Volume Total</h4>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart
+            data={progress.progressData}
+            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="totalVolume"
+              stroke="#B4ED00"
+              name="Volume Total (kg)"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+export default ExerciseProgress;
+```
+
+## Considerações de Design
+
+A interface de execução e progresso de exercícios do FitLocus segue as diretrizes de design da plataforma:
+
+- **Cores**: Fundo escuro (#202020), elementos de destaque em verde (#B4ED00), texto em branco (#F9F9F9)
+- **Tipografia**: Hanken Grotesk para texto e SUPERINE para títulos
+- **Layout**: Design minimalista com espaçamento generoso e hierarquia clara
+- **Componentes**: Campos de formulário com bordas arredondadas, botões com feedback visual ao interagir
+- **Gráficos**: Visualizações de dados claras e intuitivas, com cores consistentes com a identidade visual
+
+Para mais detalhes sobre o design, consulte as [diretrizes de marca](/design/brand-guidelines).
+
+## Considerações de Segurança
+
+1. **Validação de Dados**: Todos os dados de entrada são validados tanto no frontend quanto no backend para prevenir injeção de dados maliciosos.
+
+2. **Controle de Acesso**: Verificações rigorosas garantem que um usuário só possa acessar e modificar suas próprias execuções ou, no caso de personal trainers, as execuções de seus alunos vinculados.
+
+3. **Sanitização de Dados**: Todos os dados de entrada são sanitizados antes de serem armazenados ou exibidos.
+
+4. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS para proteger dados sensíveis durante a transmissão.
+
+## Troubleshooting
+
+### Problemas Comuns
+
+1. **"Deve haver pelo menos uma série"**: Adicione pelo menos uma série antes de registrar a execução.
+
+2. **"Acesso negado"**: Verifique se você está tentando acessar suas próprias execuções ou, se for um personal trainer, as execuções de um aluno vinculado a você.
+
+3. **"Erro ao carregar progresso"**: Verifique se o intervalo de datas selecionado contém dados de execução.
+
+### Depuração
+
+Para depurar problemas com execuções de exercícios:
+
+1. Verifique os logs do console para mensagens de erro detalhadas
+2. Utilize ferramentas como o Postman para testar os endpoints diretamente
+3. Verifique se o token JWT está sendo enviado corretamente no cabeçalho Authorization
+4. Confirme que os dados enviados estão no formato correto e dentro dos limites permitidos

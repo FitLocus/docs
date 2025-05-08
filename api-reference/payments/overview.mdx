@@ -1,0 +1,1230 @@
+---
+title: 'Pagamentos e Assinaturas'
+description: 'Endpoints para gerenciamento de pagamentos e assinaturas no FitLocus'
+---
+
+# API de Pagamentos e Assinaturas
+
+A API de Pagamentos e Assinaturas do FitLocus fornece endpoints para gerenciamento de planos, assinaturas e transações financeiras na plataforma.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A API de Pagamentos e Assinaturas permite:
+    </p>
+    <ul>
+      <li>Gerenciamento de planos de assinatura</li>
+      <li>Processamento de pagamentos</li>
+      <li>Consulta de histórico de transações</li>
+      <li>Gerenciamento de assinaturas ativas</li>
+      <li>Emissão de faturas e recibos</li>
+    </ul>
+  </div>
+</Frame>
+
+## Modelo de Dados
+
+### SubscriptionPlanDTO
+
+O objeto SubscriptionPlanDTO representa um plano de assinatura disponível na plataforma:
+
+```json
+{
+  "id": 101,
+  "name": "Premium Mensal",
+  "description": "Plano premium com acesso a todas as funcionalidades",
+  "userType": "PERSONAL",
+  "price": 99.90,
+  "currency": "BRL",
+  "interval": "MONTHLY",
+  "features": [
+    "Alunos ilimitados",
+    "Treinos ilimitados",
+    "Suporte prioritário",
+    "Análise avançada de progresso"
+  ],
+  "maxStudents": null,
+  "active": true,
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-01-15T14:30:00Z"
+}
+```
+
+### SubscriptionDTO
+
+Objeto que representa uma assinatura de um usuário:
+
+```json
+{
+  "id": 201,
+  "userId": 456,
+  "userName": "Carlos Oliveira",
+  "planId": 101,
+  "planName": "Premium Mensal",
+  "status": "ACTIVE",
+  "startDate": "2023-05-01T00:00:00Z",
+  "endDate": "2023-06-01T00:00:00Z",
+  "renewalDate": "2023-06-01T00:00:00Z",
+  "canceledAt": null,
+  "price": 99.90,
+  "currency": "BRL",
+  "paymentMethod": "CREDIT_CARD",
+  "lastFourDigits": "1234",
+  "createdAt": "2023-05-01T10:00:00Z",
+  "updatedAt": "2023-05-01T10:00:00Z"
+}
+```
+
+### PaymentDTO
+
+Objeto que representa uma transação de pagamento:
+
+```json
+{
+  "id": 301,
+  "userId": 456,
+  "userName": "Carlos Oliveira",
+  "subscriptionId": 201,
+  "planName": "Premium Mensal",
+  "amount": 99.90,
+  "currency": "BRL",
+  "status": "COMPLETED",
+  "paymentMethod": "CREDIT_CARD",
+  "lastFourDigits": "1234",
+  "transactionId": "pay_123456789",
+  "invoiceUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/invoices/301.pdf",
+  "createdAt": "2023-05-01T10:00:00Z",
+  "updatedAt": "2023-05-01T10:05:00Z"
+}
+```
+
+### InvoiceDTO
+
+Objeto que representa uma fatura:
+
+```json
+{
+  "id": 401,
+  "userId": 456,
+  "userName": "Carlos Oliveira",
+  "subscriptionId": 201,
+  "planName": "Premium Mensal",
+  "amount": 99.90,
+  "currency": "BRL",
+  "status": "PAID",
+  "dueDate": "2023-05-01T00:00:00Z",
+  "paidAt": "2023-05-01T10:05:00Z",
+  "paymentId": 301,
+  "invoiceUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/invoices/401.pdf",
+  "createdAt": "2023-04-25T00:00:00Z",
+  "updatedAt": "2023-05-01T10:05:00Z"
+}
+```
+
+## Endpoints Principais
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/subscription-plans` | Lista planos de assinatura disponíveis |
+| GET | `/subscription-plans/{id}` | Obtém detalhes de um plano específico |
+| GET | `/subscriptions/my-subscription` | Obtém a assinatura atual do usuário |
+| POST | `/subscriptions` | Cria uma nova assinatura |
+| PUT | `/subscriptions/{id}` | Atualiza uma assinatura existente |
+| POST | `/subscriptions/{id}/cancel` | Cancela uma assinatura |
+| GET | `/payments` | Lista pagamentos do usuário |
+| GET | `/payments/{id}` | Obtém detalhes de um pagamento específico |
+| GET | `/invoices` | Lista faturas do usuário |
+| GET | `/invoices/{id}` | Obtém detalhes de uma fatura específica |
+| GET | `/invoices/{id}/download` | Baixa uma fatura em formato PDF |
+
+## Detalhes de Implementação
+
+### Autenticação
+
+Todos os endpoints requerem autenticação via token JWT no cabeçalho `Authorization`:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Para mais detalhes sobre autenticação, consulte a [documentação de autenticação](/api-reference/authentication).
+
+### Controle de Acesso
+
+O acesso aos endpoints é controlado com base no tipo de usuário e propriedade do recurso:
+
+- Usuários só podem acessar suas próprias assinaturas, pagamentos e faturas
+- Administradores podem acessar todos os recursos
+
+## Listar Planos de Assinatura
+
+### Endpoint
+
+```
+GET /subscription-plans
+```
+
+Este endpoint retorna uma lista de planos de assinatura disponíveis.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| userType | string | Não | Filtrar por tipo de usuário (ALUNO, PERSONAL) |
+| active | boolean | Não | Filtrar por status de ativação |
+| interval | string | Não | Filtrar por intervalo (MONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/subscription-plans?userType=PERSONAL&active=true' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+[
+  {
+    "id": 101,
+    "name": "Premium Mensal",
+    "description": "Plano premium com acesso a todas as funcionalidades",
+    "userType": "PERSONAL",
+    "price": 99.90,
+    "currency": "BRL",
+    "interval": "MONTHLY",
+    "features": [
+      "Alunos ilimitados",
+      "Treinos ilimitados",
+      "Suporte prioritário",
+      "Análise avançada de progresso"
+    ],
+    "maxStudents": null,
+    "active": true,
+    "createdAt": "2023-01-01T10:00:00Z",
+    "updatedAt": "2023-01-15T14:30:00Z"
+  },
+  {
+    "id": 102,
+    "name": "Premium Anual",
+    "description": "Plano premium com acesso a todas as funcionalidades",
+    "userType": "PERSONAL",
+    "price": 999.00,
+    "currency": "BRL",
+    "interval": "ANNUAL",
+    "features": [
+      "Alunos ilimitados",
+      "Treinos ilimitados",
+      "Suporte prioritário",
+      "Análise avançada de progresso"
+    ],
+    "maxStudents": null,
+    "active": true,
+    "createdAt": "2023-01-01T10:00:00Z",
+    "updatedAt": "2023-01-15T14:30:00Z"
+  }
+]
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Obter Detalhes de um Plano
+
+### Endpoint
+
+```
+GET /subscription-plans/{id}
+```
+
+Este endpoint retorna os detalhes de um plano de assinatura específico.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do plano de assinatura |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/subscription-plans/101' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 101,
+  "name": "Premium Mensal",
+  "description": "Plano premium com acesso a todas as funcionalidades",
+  "userType": "PERSONAL",
+  "price": 99.90,
+  "currency": "BRL",
+  "interval": "MONTHLY",
+  "features": [
+    "Alunos ilimitados",
+    "Treinos ilimitados",
+    "Suporte prioritário",
+    "Análise avançada de progresso"
+  ],
+  "maxStudents": null,
+  "active": true,
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-01-15T14:30:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Plano não encontrado",
+  "success": false
+}
+```
+
+## Obter Assinatura Atual
+
+### Endpoint
+
+```
+GET /subscriptions/my-subscription
+```
+
+Este endpoint retorna a assinatura atual do usuário autenticado.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/subscriptions/my-subscription' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 201,
+  "userId": 456,
+  "userName": "Carlos Oliveira",
+  "planId": 101,
+  "planName": "Premium Mensal",
+  "status": "ACTIVE",
+  "startDate": "2023-05-01T00:00:00Z",
+  "endDate": "2023-06-01T00:00:00Z",
+  "renewalDate": "2023-06-01T00:00:00Z",
+  "canceledAt": null,
+  "price": 99.90,
+  "currency": "BRL",
+  "paymentMethod": "CREDIT_CARD",
+  "lastFourDigits": "1234",
+  "createdAt": "2023-05-01T10:00:00Z",
+  "updatedAt": "2023-05-01T10:00:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Assinatura não encontrada",
+  "success": false
+}
+```
+
+## Criar Nova Assinatura
+
+### Endpoint
+
+```
+POST /subscriptions
+```
+
+Este endpoint permite criar uma nova assinatura.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| planId | number | Sim | ID do plano de assinatura |
+| paymentMethod | string | Sim | Método de pagamento (CREDIT_CARD, PIX, BOLETO) |
+| cardNumber | string | Condicional | Número do cartão (obrigatório se paymentMethod for CREDIT_CARD) |
+| cardHolderName | string | Condicional | Nome do titular do cartão |
+| cardExpirationMonth | string | Condicional | Mês de expiração do cartão (MM) |
+| cardExpirationYear | string | Condicional | Ano de expiração do cartão (YYYY) |
+| cardCvv | string | Condicional | Código de segurança do cartão |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/subscriptions' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "planId": 101,
+    "paymentMethod": "CREDIT_CARD",
+    "cardNumber": "4111111111111111",
+    "cardHolderName": "Carlos Oliveira",
+    "cardExpirationMonth": "12",
+    "cardExpirationYear": "2025",
+    "cardCvv": "123"
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "id": 201,
+  "userId": 456,
+  "userName": "Carlos Oliveira",
+  "planId": 101,
+  "planName": "Premium Mensal",
+  "status": "ACTIVE",
+  "startDate": "2023-05-20T00:00:00Z",
+  "endDate": "2023-06-20T00:00:00Z",
+  "renewalDate": "2023-06-20T00:00:00Z",
+  "canceledAt": null,
+  "price": 99.90,
+  "currency": "BRL",
+  "paymentMethod": "CREDIT_CARD",
+  "lastFourDigits": "1111",
+  "createdAt": "2023-05-20T15:30:00Z",
+  "updatedAt": "2023-05-20T15:30:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "planId",
+      "message": "ID do plano é obrigatório"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Plano não encontrado",
+  "success": false
+}
+```
+
+**Código:** 409 Conflict
+
+```json
+{
+  "message": "Você já possui uma assinatura ativa",
+  "success": false
+}
+```
+
+**Código:** 422 Unprocessable Entity
+
+```json
+{
+  "message": "Pagamento recusado",
+  "details": "Cartão expirado",
+  "success": false
+}
+```
+
+## Cancelar Assinatura
+
+### Endpoint
+
+```
+POST /subscriptions/{id}/cancel
+```
+
+Este endpoint permite cancelar uma assinatura existente.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID da assinatura |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| cancelImmediately | boolean | Não | Se true, cancela imediatamente; se false, cancela na próxima renovação (default: false) |
+| reason | string | Não | Motivo do cancelamento |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/subscriptions/201/cancel' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "cancelImmediately": false,
+    "reason": "Mudando para outro plano"
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 201,
+  "userId": 456,
+  "userName": "Carlos Oliveira",
+  "planId": 101,
+  "planName": "Premium Mensal",
+  "status": "CANCELED",
+  "startDate": "2023-05-01T00:00:00Z",
+  "endDate": "2023-06-01T00:00:00Z",
+  "renewalDate": null,
+  "canceledAt": "2023-05-20T15:40:00Z",
+  "price": 99.90,
+  "currency": "BRL",
+  "paymentMethod": "CREDIT_CARD",
+  "lastFourDigits": "1234",
+  "createdAt": "2023-05-01T10:00:00Z",
+  "updatedAt": "2023-05-20T15:40:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Você não tem permissão para cancelar esta assinatura",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Assinatura não encontrada",
+  "success": false
+}
+```
+
+**Código:** 409 Conflict
+
+```json
+{
+  "message": "Esta assinatura já está cancelada",
+  "success": false
+}
+```
+
+## Listar Pagamentos
+
+### Endpoint
+
+```
+GET /payments
+```
+
+Este endpoint retorna uma lista paginada de pagamentos do usuário autenticado.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| status | string | Não | Filtrar por status (PENDING, COMPLETED, FAILED, REFUNDED) |
+| startDate | string | Não | Data inicial (formato: YYYY-MM-DD) |
+| endDate | string | Não | Data final (formato: YYYY-MM-DD) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: createdAt,desc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/payments?status=COMPLETED&startDate=2023-01-01&endDate=2023-12-31&page=0&size=10&sort=createdAt,desc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 301,
+      "userId": 456,
+      "userName": "Carlos Oliveira",
+      "subscriptionId": 201,
+      "planName": "Premium Mensal",
+      "amount": 99.90,
+      "currency": "BRL",
+      "status": "COMPLETED",
+      "paymentMethod": "CREDIT_CARD",
+      "lastFourDigits": "1234",
+      "transactionId": "pay_123456789",
+      "invoiceUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/invoices/301.pdf",
+      "createdAt": "2023-05-01T10:00:00Z",
+      "updatedAt": "2023-05-01T10:05:00Z"
+    },
+    // Mais pagamentos...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 1,
+  "totalElements": 3,
+  "last": true,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 3,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Listar Faturas
+
+### Endpoint
+
+```
+GET /invoices
+```
+
+Este endpoint retorna uma lista paginada de faturas do usuário autenticado.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| status | string | Não | Filtrar por status (PENDING, PAID, OVERDUE, CANCELED) |
+| startDate | string | Não | Data inicial (formato: YYYY-MM-DD) |
+| endDate | string | Não | Data final (formato: YYYY-MM-DD) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: dueDate,desc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/invoices?status=PAID&startDate=2023-01-01&endDate=2023-12-31&page=0&size=10&sort=dueDate,desc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 401,
+      "userId": 456,
+      "userName": "Carlos Oliveira",
+      "subscriptionId": 201,
+      "planName": "Premium Mensal",
+      "amount": 99.90,
+      "currency": "BRL",
+      "status": "PAID",
+      "dueDate": "2023-05-01T00:00:00Z",
+      "paidAt": "2023-05-01T10:05:00Z",
+      "paymentId": 301,
+      "invoiceUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/invoices/401.pdf",
+      "createdAt": "2023-04-25T00:00:00Z",
+      "updatedAt": "2023-05-01T10:05:00Z"
+    },
+    // Mais faturas...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 1,
+  "totalElements": 3,
+  "last": true,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 3,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Baixar Fatura
+
+### Endpoint
+
+```
+GET /invoices/{id}/download
+```
+
+Este endpoint permite baixar uma fatura em formato PDF.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID da fatura |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/invoices/401/download' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="invoice-401.pdf"
+
+[Conteúdo binário do PDF]
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Você não tem permissão para acessar esta fatura",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Fatura não encontrada",
+  "success": false
+}
+```
+
+## Implementação no Frontend
+
+### Componente de Seleção de Plano
+
+```tsx
+// Exemplo de componente de seleção de plano em React
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const PlanSelection = () => {
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('/subscription-plans?userType=PERSONAL&active=true');
+        setPlans(response.data);
+        setLoading(false);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Erro ao carregar planos');
+        setLoading(false);
+      }
+    };
+    
+    fetchPlans();
+  }, []);
+  
+  const handleSelectPlan = (plan) => {
+    setSelectedPlan(plan);
+  };
+  
+  if (loading) return <div>Carregando...</div>;
+  if (error) return <div>Erro: {error}</div>;
+  
+  return (
+    <div className="plan-selection">
+      <h2>Escolha seu Plano</h2>
+      
+      <div className="plans-grid">
+        {plans.map(plan => (
+          <div
+            key={plan.id}
+            className={`plan-card ${selectedPlan?.id === plan.id ? 'selected' : ''}`}
+            onClick={() => handleSelectPlan(plan)}
+          >
+            <h3>{plan.name}</h3>
+            <p className="description">{plan.description}</p>
+            <div className="price">
+              <span className="currency">{plan.currency}</span>
+              <span className="amount">{plan.price.toFixed(2)}</span>
+              <span className="interval">/{plan.interval.toLowerCase()}</span>
+            </div>
+            <ul className="features">
+              {plan.features.map((feature, index) => (
+                <li key={index}>{feature}</li>
+              ))}
+            </ul>
+            <button
+              className={`select-button ${selectedPlan?.id === plan.id ? 'selected' : ''}`}
+            >
+              {selectedPlan?.id === plan.id ? 'Selecionado' : 'Selecionar'}
+            </button>
+          </div>
+        ))}
+      </div>
+      
+      {selectedPlan && (
+        <div className="checkout-section">
+          <h3>Finalizar Assinatura</h3>
+          <p>Você selecionou o plano <strong>{selectedPlan.name}</strong>.</p>
+          <p>Valor: {selectedPlan.currency} {selectedPlan.price.toFixed(2)}/{selectedPlan.interval.toLowerCase()}</p>
+          <button className="checkout-button">Continuar para Pagamento</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PlanSelection;
+```
+
+### Componente de Histórico de Pagamentos
+
+```tsx
+// Exemplo de componente de histórico de pagamentos em React
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const PaymentHistory = () => {
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    status: '',
+    startDate: '',
+    endDate: '',
+    page: 0,
+    size: 10,
+    sort: 'createdAt,desc'
+  });
+  
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        
+        // Construir query string a partir dos filtros
+        const queryParams = new URLSearchParams();
+        if (filters.status) queryParams.append('status', filters.status);
+        if (filters.startDate) queryParams.append('startDate', filters.startDate);
+        if (filters.endDate) queryParams.append('endDate', filters.endDate);
+        queryParams.append('page', filters.page.toString());
+        queryParams.append('size', filters.size.toString());
+        queryParams.append('sort', filters.sort);
+        
+        const response = await axios.get(`/payments?${queryParams.toString()}`);
+        setPayments(response.data.content);
+        setLoading(false);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Erro ao carregar pagamentos');
+        setLoading(false);
+      }
+    };
+    
+    fetchPayments();
+  }, [filters]);
+  
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value,
+      page: 0 // Reset page when filters change
+    }));
+  };
+  
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+  
+  const formatCurrency = (amount, currency) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: currency
+    }).format(amount);
+  };
+  
+  const getStatusClass = (status) => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'status-success';
+      case 'PENDING':
+        return 'status-warning';
+      case 'FAILED':
+        return 'status-error';
+      case 'REFUNDED':
+        return 'status-info';
+      default:
+        return '';
+    }
+  };
+  
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'COMPLETED':
+        return 'Concluído';
+      case 'PENDING':
+        return 'Pendente';
+      case 'FAILED':
+        return 'Falhou';
+      case 'REFUNDED':
+        return 'Reembolsado';
+      default:
+        return status;
+    }
+  };
+  
+  if (loading) return <div>Carregando...</div>;
+  if (error) return <div>Erro: {error}</div>;
+  
+  return (
+    <div className="payment-history">
+      <h2>Histórico de Pagamentos</h2>
+      
+      <div className="filters">
+        <div className="filter-group">
+          <label>Status</label>
+          <select
+            name="status"
+            value={filters.status}
+            onChange={handleFilterChange}
+          >
+            <option value="">Todos</option>
+            <option value="COMPLETED">Concluído</option>
+            <option value="PENDING">Pendente</option>
+            <option value="FAILED">Falhou</option>
+            <option value="REFUNDED">Reembolsado</option>
+          </select>
+        </div>
+        
+        <div className="filter-group">
+          <label>Data Inicial</label>
+          <input
+            type="date"
+            name="startDate"
+            value={filters.startDate}
+            onChange={handleFilterChange}
+          />
+        </div>
+        
+        <div className="filter-group">
+          <label>Data Final</label>
+          <input
+            type="date"
+            name="endDate"
+            value={filters.endDate}
+            onChange={handleFilterChange}
+          />
+        </div>
+      </div>
+      
+      {payments.length === 0 ? (
+        <p className="no-payments">Nenhum pagamento encontrado.</p>
+      ) : (
+        <div className="payments-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Plano</th>
+                <th>Valor</th>
+                <th>Método</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map(payment => (
+                <tr key={payment.id}>
+                  <td>{formatDate(payment.createdAt)}</td>
+                  <td>{payment.planName}</td>
+                  <td>{formatCurrency(payment.amount, payment.currency)}</td>
+                  <td>
+                    {payment.paymentMethod === 'CREDIT_CARD' ? (
+                      <span>Cartão de Crédito •••• {payment.lastFourDigits}</span>
+                    ) : (
+                      payment.paymentMethod
+                    )}
+                  </td>
+                  <td>
+                    <span className={`status ${getStatusClass(payment.status)}`}>
+                      {getStatusLabel(payment.status)}
+                    </span>
+                  </td>
+                  <td>
+                    <a
+                      href={payment.invoiceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="invoice-link"
+                    >
+                      Ver Fatura
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      
+      <div className="pagination">
+        <button
+          disabled={filters.page === 0}
+          onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+        >
+          Anterior
+        </button>
+        <span>Página {filters.page + 1}</span>
+        <button
+          disabled={payments.length < filters.size}
+          onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+        >
+          Próxima
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default PaymentHistory;
+```
+
+## Considerações de Design
+
+A interface de pagamentos e assinaturas do FitLocus segue as diretrizes de design da plataforma:
+
+- **Cores**: Fundo escuro (#202020), elementos de destaque em verde (#B4ED00), texto em branco (#F9F9F9)
+- **Tipografia**: Hanken Grotesk para texto e SUPERINE para títulos
+- **Layout**: Design minimalista com espaçamento generoso e hierarquia clara
+- **Componentes**: Campos de formulário com bordas arredondadas, botões com feedback visual ao interagir
+
+Para mais detalhes sobre o design, consulte as [diretrizes de marca](/design/brand-guidelines).
+
+## Considerações de Segurança
+
+1. **PCI Compliance**: O sistema utiliza um gateway de pagamento compatível com PCI DSS para processar informações de cartão de crédito.
+
+2. **Tokenização**: Informações de cartão de crédito são tokenizadas e nunca armazenadas diretamente no banco de dados.
+
+3. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS para proteger dados sensíveis durante a transmissão.
+
+4. **Validação de Dados**: Todos os dados de entrada são validados tanto no frontend quanto no backend para prevenir injeção de dados maliciosos.
+
+5. **Controle de Acesso**: Verificações rigorosas garantem que um usuário só possa acessar e modificar seus próprios dados de pagamento e assinatura.
+
+## Regras de Negócio
+
+1. **Período de Teste Gratuito**: Novos usuários têm acesso a um período de teste gratuito de 7 dias.
+
+2. **Renovação Automática**: Assinaturas são renovadas automaticamente no final do período, a menos que sejam canceladas.
+
+3. **Cancelamento**: Usuários podem cancelar suas assinaturas a qualquer momento, com opção de cancelamento imediato ou no final do período atual.
+
+4. **Reembolsos**: Reembolsos são processados de acordo com a política de reembolso, geralmente dentro de 5 dias úteis.
+
+5. **Limites por Plano**: Cada plano tem limites específicos de recursos, como número máximo de alunos para personal trainers.

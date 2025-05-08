@@ -1,0 +1,444 @@
+---
+title: 'Visão Geral de Treinos'
+description: 'Endpoints para gerenciamento de treinos no FitLocus'
+---
+
+# API de Treinos
+
+A API de Treinos do FitLocus fornece endpoints para criação, gerenciamento e execução de treinos na plataforma.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A API de Treinos permite:
+    </p>
+    <ul>
+      <li>Criação e gerenciamento de treinos personalizados</li>
+      <li>Organização de exercícios em treinos estruturados</li>
+      <li>Atribuição de treinos a alunos</li>
+      <li>Acompanhamento de execução de treinos</li>
+      <li>Criação e gerenciamento de planos de treino</li>
+    </ul>
+  </div>
+</Frame>
+
+## Modelo de Dados
+
+### TrainingDTO
+
+O objeto TrainingDTO é utilizado para transferência de dados de treinos entre o cliente e o servidor:
+
+```json
+{
+  "id": 101,
+  "name": "Treino A - Peito e Tríceps",
+  "description": "Treino focado em desenvolvimento de peito e tríceps",
+  "createdBy": 456,
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-01-15T14:30:00Z",
+  "exercises": [
+    {
+      "id": 201,
+      "exerciseId": 123,
+      "exerciseName": "Supino Reto",
+      "sets": 3,
+      "repetitions": "12, 10, 8",
+      "restTime": 60,
+      "notes": "Aumentar carga progressivamente",
+      "order": 1
+    },
+    {
+      "id": 202,
+      "exerciseId": 124,
+      "exerciseName": "Supino Inclinado",
+      "sets": 3,
+      "repetitions": "12, 10, 8",
+      "restTime": 60,
+      "notes": "Foco na parte superior do peito",
+      "order": 2
+    },
+    {
+      "id": 203,
+      "exerciseId": 125,
+      "exerciseName": "Tríceps Corda",
+      "sets": 3,
+      "repetitions": "15, 12, 10",
+      "restTime": 45,
+      "notes": "Manter cotovelos junto ao corpo",
+      "order": 3
+    }
+  ],
+  "isPublic": false,
+  "difficulty": "INTERMEDIARIO",
+  "estimatedDuration": 45,
+  "category": "PEITO_TRICEPS"
+}
+```
+
+### TrainingPlanDTO
+
+Objeto que representa um plano de treino (conjunto de treinos organizados por dias da semana):
+
+```json
+{
+  "id": 301,
+  "name": "Plano Hipertrofia - Intermediário",
+  "description": "Plano de treino para ganho de massa muscular",
+  "createdBy": 456,
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-01-15T14:30:00Z",
+  "trainings": [
+    {
+      "id": 401,
+      "trainingId": 101,
+      "trainingName": "Treino A - Peito e Tríceps",
+      "dayOfWeek": "MONDAY",
+      "order": 1
+    },
+    {
+      "id": 402,
+      "trainingId": 102,
+      "trainingName": "Treino B - Costas e Bíceps",
+      "dayOfWeek": "WEDNESDAY",
+      "order": 2
+    },
+    {
+      "id": 403,
+      "trainingId": 103,
+      "trainingName": "Treino C - Pernas e Ombros",
+      "dayOfWeek": "FRIDAY",
+      "order": 3
+    }
+  ],
+  "isPublic": false,
+  "difficulty": "INTERMEDIARIO",
+  "goal": "HIPERTROFIA",
+  "duration": 12
+}
+```
+
+### TrainingExecutionDTO
+
+Objeto que representa a execução de um treino:
+
+```json
+{
+  "id": 501,
+  "trainingId": 101,
+  "userId": 456,
+  "startTime": "2023-05-20T15:00:00Z",
+  "endTime": "2023-05-20T15:45:00Z",
+  "duration": 2700,
+  "completed": true,
+  "notes": "Bom treino, aumentei carga no supino",
+  "exerciseExecutions": [
+    {
+      "id": 601,
+      "exerciseId": 123,
+      "sets": [
+        {
+          "repetitions": 12,
+          "weight": 60.0,
+          "completed": true
+        },
+        {
+          "repetitions": 10,
+          "weight": 65.0,
+          "completed": true
+        },
+        {
+          "repetitions": 8,
+          "weight": 70.0,
+          "completed": true
+        }
+      ]
+    },
+    {
+      "id": 602,
+      "exerciseId": 124,
+      "sets": [
+        {
+          "repetitions": 12,
+          "weight": 50.0,
+          "completed": true
+        },
+        {
+          "repetitions": 10,
+          "weight": 55.0,
+          "completed": true
+        },
+        {
+          "repetitions": 8,
+          "weight": 60.0,
+          "completed": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+### TrainingAssignmentDTO
+
+Objeto que representa a atribuição de um treino a um aluno:
+
+```json
+{
+  "id": 701,
+  "trainingId": 101,
+  "trainingName": "Treino A - Peito e Tríceps",
+  "studentId": 789,
+  "studentName": "João Silva",
+  "personalId": 456,
+  "personalName": "Carlos Oliveira",
+  "assignedAt": "2023-05-15T10:00:00Z",
+  "scheduledDate": "2023-05-20",
+  "status": "PENDING",
+  "notes": "Foco na técnica e não na carga"
+}
+```
+
+## Endpoints Principais
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/trainings` | Lista treinos com filtros opcionais |
+| GET | `/trainings/{id}` | Obtém detalhes de um treino específico |
+| POST | `/trainings` | Cria um novo treino |
+| PUT | `/trainings/{id}` | Atualiza um treino existente |
+| DELETE | `/trainings/{id}` | Remove um treino |
+| GET | `/trainings/my-trainings` | Lista treinos criados pelo usuário autenticado |
+| POST | `/trainings/{id}/assign` | Atribui um treino a um aluno |
+| GET | `/trainings/assignments` | Lista atribuições de treinos |
+| POST | `/trainings/{id}/execution` | Registra uma execução de treino |
+| GET | `/trainings/{id}/executions` | Lista execuções de um treino específico |
+| GET | `/training-plans` | Lista planos de treino |
+| GET | `/training-plans/{id}` | Obtém detalhes de um plano de treino específico |
+| POST | `/training-plans` | Cria um novo plano de treino |
+| PUT | `/training-plans/{id}` | Atualiza um plano de treino existente |
+| DELETE | `/training-plans/{id}` | Remove um plano de treino |
+
+## Detalhes de Implementação
+
+### Autenticação
+
+Todos os endpoints requerem autenticação via token JWT no cabeçalho `Authorization`:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Para mais detalhes sobre autenticação, consulte a [documentação de autenticação](/api-reference/authentication).
+
+### Controle de Acesso
+
+O acesso aos endpoints é controlado com base no tipo de usuário e propriedade do recurso:
+
+- Personal trainers podem criar, visualizar, atualizar e remover seus próprios treinos
+- Personal trainers só podem atribuir treinos aos seus alunos vinculados
+- Alunos só podem visualizar treinos atribuídos a eles
+- Alunos só podem registrar execuções de treinos atribuídos a eles
+
+### Paginação e Ordenação
+
+Endpoints que retornam listas de treinos suportam paginação e ordenação através dos seguintes parâmetros:
+
+- `page`: Número da página (começando em 0)
+- `size`: Tamanho da página (número de itens por página)
+- `sort`: Campo e direção de ordenação (ex: `name,asc`)
+
+## Exemplos de Uso
+
+### Listar Treinos
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/trainings?page=0&size=10&sort=name,asc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Obter Detalhes de um Treino
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/trainings/101' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Criar um Novo Treino
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/trainings' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Treino A - Peito e Tríceps",
+    "description": "Treino focado em desenvolvimento de peito e tríceps",
+    "exercises": [
+      {
+        "exerciseId": 123,
+        "sets": 3,
+        "repetitions": "12, 10, 8",
+        "restTime": 60,
+        "notes": "Aumentar carga progressivamente",
+        "order": 1
+      },
+      {
+        "exerciseId": 124,
+        "sets": 3,
+        "repetitions": "12, 10, 8",
+        "restTime": 60,
+        "notes": "Foco na parte superior do peito",
+        "order": 2
+      },
+      {
+        "exerciseId": 125,
+        "sets": 3,
+        "repetitions": "15, 12, 10",
+        "restTime": 45,
+        "notes": "Manter cotovelos junto ao corpo",
+        "order": 3
+      }
+    ],
+    "isPublic": false,
+    "difficulty": "INTERMEDIARIO",
+    "estimatedDuration": 45,
+    "category": "PEITO_TRICEPS"
+  }'
+```
+
+### Atribuir Treino a um Aluno
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/trainings/101/assign' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "studentId": 789,
+    "scheduledDate": "2023-05-20",
+    "notes": "Foco na técnica e não na carga"
+  }'
+```
+
+## Códigos de Status
+
+| Código | Descrição |
+|--------|-----------|
+| 200 | OK - A requisição foi bem-sucedida |
+| 201 | Created - Um novo treino, plano ou execução foi criado com sucesso |
+| 400 | Bad Request - A requisição contém dados inválidos |
+| 401 | Unauthorized - Autenticação necessária |
+| 403 | Forbidden - Sem permissão para acessar o recurso |
+| 404 | Not Found - Treino, plano ou recurso não encontrado |
+| 500 | Internal Server Error - Erro interno do servidor |
+
+## Considerações de Segurança
+
+1. **Validação de Dados**: Todos os dados de entrada são validados para prevenir injeção de dados maliciosos.
+
+2. **Controle de Acesso**: Verificações rigorosas garantem que um usuário só possa acessar e modificar seus próprios treinos ou, no caso de personal trainers, os treinos atribuídos aos seus alunos.
+
+3. **Sanitização de Dados**: Todos os dados de entrada são sanitizados antes de serem armazenados ou exibidos.
+
+4. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS.
+
+## Implementação no Frontend
+
+### Componente de Listagem de Treinos
+
+```tsx
+// Exemplo de componente de listagem de treinos em React
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const TrainingList = () => {
+  const [trainings, setTrainings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    page: 0,
+    size: 10,
+    sort: 'name,asc'
+  });
+  
+  useEffect(() => {
+    const fetchTrainings = async () => {
+      try {
+        setLoading(true);
+        
+        // Construir query string a partir dos filtros
+        const queryParams = new URLSearchParams();
+        queryParams.append('page', filters.page.toString());
+        queryParams.append('size', filters.size.toString());
+        queryParams.append('sort', filters.sort);
+        
+        const response = await axios.get(`/trainings?${queryParams.toString()}`);
+        setTrainings(response.data.content);
+        setLoading(false);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Erro ao carregar treinos');
+        setLoading(false);
+      }
+    };
+    
+    fetchTrainings();
+  }, [filters]);
+  
+  if (loading) return <div>Carregando...</div>;
+  if (error) return <div>Erro: {error}</div>;
+  
+  return (
+    <div className="training-list">
+      <h2>Meus Treinos</h2>
+      
+      <div className="training-grid">
+        {trainings.map(training => (
+          <div key={training.id} className="training-card">
+            <h3>{training.name}</h3>
+            <p className="description">{training.description}</p>
+            <p className="details">
+              <span className="difficulty">{training.difficulty}</span>
+              <span className="duration">{training.estimatedDuration} min</span>
+              <span className="exercises">{training.exercises.length} exercícios</span>
+            </p>
+            <div className="actions">
+              <button className="view-details">Ver Detalhes</button>
+              <button className="assign">Atribuir</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      <div className="pagination">
+        <button
+          disabled={filters.page === 0}
+          onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+        >
+          Anterior
+        </button>
+        <span>Página {filters.page + 1}</span>
+        <button
+          disabled={trainings.length < filters.size}
+          onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+        >
+          Próxima
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default TrainingList;
+```
+
+## Próximos Passos
+
+Para mais detalhes sobre endpoints específicos, consulte:
+
+- [Criação e Gerenciamento de Treinos](/api-reference/trainings/create)
+- [Execução e Acompanhamento de Treinos](/api-reference/trainings/execution)
+- [Planos de Treino](/api-reference/trainings/plans)

@@ -1,0 +1,1266 @@
+---
+title: 'Planos de Treino'
+description: 'Endpoints para gerenciamento de planos de treino no FitLocus'
+---
+
+# Planos de Treino
+
+Esta seção detalha os endpoints para criação, gerenciamento e atribuição de planos de treino na plataforma FitLocus.
+
+## Visão Geral
+
+Os planos de treino são conjuntos organizados de treinos distribuídos ao longo da semana. Eles permitem que personal trainers criem programas de treinamento completos para seus alunos, facilitando o acompanhamento e a progressão.
+
+## Criar Plano de Treino
+
+### Endpoint
+
+```
+POST /training-plans
+```
+
+Este endpoint permite a criação de um novo plano de treino com treinos associados.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| name | string | Sim | Nome do plano de treino |
+| description | string | Sim | Descrição detalhada do plano |
+| trainings | array | Sim | Lista de treinos do plano |
+| isPublic | boolean | Não | Se o plano é público (default: false) |
+| difficulty | string | Não | Nível de dificuldade (INICIANTE, INTERMEDIARIO, AVANCADO) |
+| goal | string | Não | Objetivo do plano (HIPERTROFIA, EMAGRECIMENTO, RESISTENCIA, etc.) |
+| duration | number | Não | Duração do plano em semanas |
+
+Cada objeto na lista `trainings` deve conter:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| trainingId | number | Sim | ID do treino |
+| dayOfWeek | string | Sim | Dia da semana (MONDAY, TUESDAY, etc.) |
+| order | number | Sim | Ordem do treino no dia |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/training-plans' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Plano Hipertrofia - Intermediário",
+    "description": "Plano de treino para ganho de massa muscular",
+    "trainings": [
+      {
+        "trainingId": 101,
+        "dayOfWeek": "MONDAY",
+        "order": 1
+      },
+      {
+        "trainingId": 102,
+        "dayOfWeek": "WEDNESDAY",
+        "order": 1
+      },
+      {
+        "trainingId": 103,
+        "dayOfWeek": "FRIDAY",
+        "order": 1
+      }
+    ],
+    "isPublic": false,
+    "difficulty": "INTERMEDIARIO",
+    "goal": "HIPERTROFIA",
+    "duration": 12
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "id": 301,
+  "name": "Plano Hipertrofia - Intermediário",
+  "description": "Plano de treino para ganho de massa muscular",
+  "createdBy": 456,
+  "createdAt": "2023-05-20T15:30:00Z",
+  "updatedAt": "2023-05-20T15:30:00Z",
+  "trainings": [
+    {
+      "id": 401,
+      "trainingId": 101,
+      "trainingName": "Treino A - Peito e Tríceps",
+      "dayOfWeek": "MONDAY",
+      "order": 1
+    },
+    {
+      "id": 402,
+      "trainingId": 102,
+      "trainingName": "Treino B - Costas e Bíceps",
+      "dayOfWeek": "WEDNESDAY",
+      "order": 1
+    },
+    {
+      "id": 403,
+      "trainingId": 103,
+      "trainingName": "Treino C - Pernas e Ombros",
+      "dayOfWeek": "FRIDAY",
+      "order": 1
+    }
+  ],
+  "isPublic": false,
+  "difficulty": "INTERMEDIARIO",
+  "goal": "HIPERTROFIA",
+  "duration": 12
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "name",
+      "message": "Nome não pode estar vazio"
+    },
+    {
+      "field": "trainings",
+      "message": "Deve haver pelo menos um treino"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas personal trainers podem criar planos de treino",
+  "success": false
+}
+```
+
+## Obter Plano de Treino
+
+### Endpoint
+
+```
+GET /training-plans/{id}
+```
+
+Este endpoint retorna os detalhes de um plano de treino específico.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do plano de treino |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/training-plans/301' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 301,
+  "name": "Plano Hipertrofia - Intermediário",
+  "description": "Plano de treino para ganho de massa muscular",
+  "createdBy": 456,
+  "createdAt": "2023-05-20T15:30:00Z",
+  "updatedAt": "2023-05-20T15:30:00Z",
+  "trainings": [
+    {
+      "id": 401,
+      "trainingId": 101,
+      "trainingName": "Treino A - Peito e Tríceps",
+      "dayOfWeek": "MONDAY",
+      "order": 1
+    },
+    {
+      "id": 402,
+      "trainingId": 102,
+      "trainingName": "Treino B - Costas e Bíceps",
+      "dayOfWeek": "WEDNESDAY",
+      "order": 1
+    },
+    {
+      "id": 403,
+      "trainingId": 103,
+      "trainingName": "Treino C - Pernas e Ombros",
+      "dayOfWeek": "FRIDAY",
+      "order": 1
+    }
+  ],
+  "isPublic": false,
+  "difficulty": "INTERMEDIARIO",
+  "goal": "HIPERTROFIA",
+  "duration": 12
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Acesso negado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Plano de treino não encontrado",
+  "success": false
+}
+```
+
+## Atualizar Plano de Treino
+
+### Endpoint
+
+```
+PUT /training-plans/{id}
+```
+
+Este endpoint permite atualizar um plano de treino existente.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do plano de treino |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição segue a mesma estrutura da criação de plano de treino.
+
+### Exemplo de Requisição
+
+```bash
+curl -X PUT \
+  'http://localhost:8080/api/training-plans/301' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Plano Hipertrofia - Intermediário (Atualizado)",
+    "description": "Plano de treino para ganho de massa muscular com treinos atualizados",
+    "trainings": [
+      {
+        "trainingId": 101,
+        "dayOfWeek": "MONDAY",
+        "order": 1
+      },
+      {
+        "trainingId": 102,
+        "dayOfWeek": "WEDNESDAY",
+        "order": 1
+      },
+      {
+        "trainingId": 103,
+        "dayOfWeek": "FRIDAY",
+        "order": 1
+      },
+      {
+        "trainingId": 104,
+        "dayOfWeek": "SATURDAY",
+        "order": 1
+      }
+    ],
+    "isPublic": false,
+    "difficulty": "INTERMEDIARIO",
+    "goal": "HIPERTROFIA",
+    "duration": 16
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 301,
+  "name": "Plano Hipertrofia - Intermediário (Atualizado)",
+  "description": "Plano de treino para ganho de massa muscular com treinos atualizados",
+  "createdBy": 456,
+  "createdAt": "2023-05-20T15:30:00Z",
+  "updatedAt": "2023-05-20T16:00:00Z",
+  "trainings": [
+    {
+      "id": 401,
+      "trainingId": 101,
+      "trainingName": "Treino A - Peito e Tríceps",
+      "dayOfWeek": "MONDAY",
+      "order": 1
+    },
+    {
+      "id": 402,
+      "trainingId": 102,
+      "trainingName": "Treino B - Costas e Bíceps",
+      "dayOfWeek": "WEDNESDAY",
+      "order": 1
+    },
+    {
+      "id": 403,
+      "trainingId": 103,
+      "trainingName": "Treino C - Pernas e Ombros",
+      "dayOfWeek": "FRIDAY",
+      "order": 1
+    },
+    {
+      "id": 404,
+      "trainingId": 104,
+      "trainingName": "Treino D - Core e Cardio",
+      "dayOfWeek": "SATURDAY",
+      "order": 1
+    }
+  ],
+  "isPublic": false,
+  "difficulty": "INTERMEDIARIO",
+  "goal": "HIPERTROFIA",
+  "duration": 16
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "name",
+      "message": "Nome não pode estar vazio"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas o criador pode atualizar este plano de treino",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Plano de treino não encontrado",
+  "success": false
+}
+```
+
+## Remover Plano de Treino
+
+### Endpoint
+
+```
+DELETE /training-plans/{id}
+```
+
+Este endpoint permite remover um plano de treino existente.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do plano de treino |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X DELETE \
+  'http://localhost:8080/api/training-plans/301' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 204 No Content
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas o criador pode remover este plano de treino",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Plano de treino não encontrado",
+  "success": false
+}
+```
+
+**Código:** 409 Conflict
+
+```json
+{
+  "message": "Não é possível remover este plano de treino pois ele está atribuído a alunos",
+  "success": false
+}
+```
+
+## Listar Planos de Treino
+
+### Endpoint
+
+```
+GET /training-plans
+```
+
+Este endpoint retorna uma lista paginada de planos de treino com filtros opcionais.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| name | string | Não | Filtrar por nome (busca parcial) |
+| createdBy | number | Não | Filtrar por criador |
+| isPublic | boolean | Não | Filtrar por visibilidade |
+| difficulty | string | Não | Filtrar por dificuldade |
+| goal | string | Não | Filtrar por objetivo |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: name,asc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/training-plans?goal=HIPERTROFIA&page=0&size=10&sort=name,asc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 301,
+      "name": "Plano Hipertrofia - Intermediário",
+      "description": "Plano de treino para ganho de massa muscular",
+      "createdBy": 456,
+      "createdAt": "2023-05-20T15:30:00Z",
+      "updatedAt": "2023-05-20T15:30:00Z",
+      "trainings": [
+        {
+          "id": 401,
+          "trainingId": 101,
+          "trainingName": "Treino A - Peito e Tríceps",
+          "dayOfWeek": "MONDAY",
+          "order": 1
+        },
+        // Mais treinos...
+      ],
+      "isPublic": false,
+      "difficulty": "INTERMEDIARIO",
+      "goal": "HIPERTROFIA",
+      "duration": 12
+    },
+    // Mais planos...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 2,
+  "totalElements": 15,
+  "last": false,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 10,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Listar Meus Planos de Treino
+
+### Endpoint
+
+```
+GET /training-plans/my-plans
+```
+
+Este endpoint retorna uma lista paginada de planos de treino criados pelo usuário autenticado.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: name,asc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/training-plans/my-plans?page=0&size=10&sort=createdAt,desc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 301,
+      "name": "Plano Hipertrofia - Intermediário",
+      "description": "Plano de treino para ganho de massa muscular",
+      "createdBy": 456,
+      "createdAt": "2023-05-20T15:30:00Z",
+      "updatedAt": "2023-05-20T15:30:00Z",
+      "trainings": [
+        {
+          "id": 401,
+          "trainingId": 101,
+          "trainingName": "Treino A - Peito e Tríceps",
+          "dayOfWeek": "MONDAY",
+          "order": 1
+        },
+        // Mais treinos...
+      ],
+      "isPublic": false,
+      "difficulty": "INTERMEDIARIO",
+      "goal": "HIPERTROFIA",
+      "duration": 12
+    },
+    // Mais planos...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 1,
+  "totalElements": 5,
+  "last": true,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 5,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas personal trainers podem acessar este recurso",
+  "success": false
+}
+```
+
+## Atribuir Plano de Treino a um Aluno
+
+### Endpoint
+
+```
+POST /training-plans/{id}/assign
+```
+
+Este endpoint permite atribuir um plano de treino a um aluno.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do plano de treino |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| studentId | number | Sim | ID do aluno |
+| startDate | string | Não | Data de início (formato: YYYY-MM-DD) |
+| notes | string | Não | Observações para o aluno |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/training-plans/301/assign' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "studentId": 789,
+    "startDate": "2023-06-01",
+    "notes": "Siga o plano rigorosamente para melhores resultados"
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "id": 501,
+  "planId": 301,
+  "planName": "Plano Hipertrofia - Intermediário",
+  "studentId": 789,
+  "studentName": "João Silva",
+  "personalId": 456,
+  "personalName": "Carlos Oliveira",
+  "assignedAt": "2023-05-20T16:30:00Z",
+  "startDate": "2023-06-01",
+  "endDate": "2023-08-24",
+  "status": "PENDING",
+  "notes": "Siga o plano rigorosamente para melhores resultados"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "studentId",
+      "message": "ID do aluno é obrigatório"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas personal trainers podem atribuir planos de treino",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Você só pode atribuir planos de treino aos seus alunos",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Plano de treino não encontrado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Aluno não encontrado",
+  "success": false
+}
+```
+
+## Listar Atribuições de Planos de Treino
+
+### Endpoint
+
+```
+GET /training-plans/assignments
+```
+
+Este endpoint retorna uma lista paginada de atribuições de planos de treino.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| studentId | number | Não | Filtrar por aluno |
+| planId | number | Não | Filtrar por plano |
+| status | string | Não | Filtrar por status (PENDING, ACTIVE, COMPLETED, CANCELED) |
+| startDate | string | Não | Data inicial (formato: YYYY-MM-DD) |
+| endDate | string | Não | Data final (formato: YYYY-MM-DD) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: startDate,asc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/training-plans/assignments?studentId=789&status=ACTIVE&page=0&size=10&sort=startDate,asc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 501,
+      "planId": 301,
+      "planName": "Plano Hipertrofia - Intermediário",
+      "studentId": 789,
+      "studentName": "João Silva",
+      "personalId": 456,
+      "personalName": "Carlos Oliveira",
+      "assignedAt": "2023-05-20T16:30:00Z",
+      "startDate": "2023-06-01",
+      "endDate": "2023-08-24",
+      "status": "ACTIVE",
+      "notes": "Siga o plano rigorosamente para melhores resultados"
+    },
+    // Mais atribuições...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 1,
+  "totalElements": 3,
+  "last": true,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 3,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Acesso negado",
+  "success": false
+}
+```
+
+## Implementação no Frontend
+
+### Componente de Criação de Plano de Treino
+
+```tsx
+// Exemplo de componente de criação de plano de treino em React
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const TrainingPlanForm = () => {
+  const [plan, setPlan] = useState({
+    name: '',
+    description: '',
+    trainings: [],
+    isPublic: false,
+    difficulty: '',
+    goal: '',
+    duration: 12
+  });
+  
+  const [availableTrainings, setAvailableTrainings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingTrainings, setLoadingTrainings] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  
+  useEffect(() => {
+    // Carregar treinos disponíveis
+    const fetchTrainings = async () => {
+      try {
+        setLoadingTrainings(true);
+        const response = await axios.get('/trainings/my-trainings?page=0&size=100');
+        setAvailableTrainings(response.data.content);
+        setLoadingTrainings(false);
+      } catch (err) {
+        console.error('Erro ao carregar treinos:', err);
+        setLoadingTrainings(false);
+      }
+    };
+    
+    fetchTrainings();
+  }, []);
+  
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setPlan(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+  
+  const handleAddTraining = () => {
+    if (availableTrainings.length === 0) return;
+    
+    const newTraining = {
+      trainingId: availableTrainings[0].id,
+      dayOfWeek: 'MONDAY',
+      order: 1
+    };
+    
+    setPlan(prev => ({
+      ...prev,
+      trainings: [...prev.trainings, newTraining]
+    }));
+  };
+  
+  const handleRemoveTraining = (index) => {
+    const newTrainings = [...plan.trainings];
+    newTrainings.splice(index, 1);
+    
+    setPlan(prev => ({
+      ...prev,
+      trainings: newTrainings
+    }));
+  };
+  
+  const handleTrainingChange = (index, field, value) => {
+    const newTrainings = [...plan.trainings];
+    newTrainings[index] = {
+      ...newTrainings[index],
+      [field]: value
+    };
+    
+    setPlan(prev => ({
+      ...prev,
+      trainings: newTrainings
+    }));
+  };
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validação básica
+    if (!plan.name || !plan.description || plan.trainings.length === 0) {
+      setError('Preencha todos os campos obrigatórios e adicione pelo menos um treino.');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+    
+    try {
+      const response = await axios.post('/training-plans', plan);
+      
+      setLoading(false);
+      setSuccess(true);
+      // Resetar formulário
+      setPlan({
+        name: '',
+        description: '',
+        trainings: [],
+        isPublic: false,
+        difficulty: '',
+        goal: '',
+        duration: 12
+      });
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.message || 'Erro ao criar plano de treino');
+    }
+  };
+  
+  if (loadingTrainings) return <div>Carregando treinos...</div>;
+  if (availableTrainings.length === 0) return <div>Você não tem treinos cadastrados. Crie treinos primeiro.</div>;
+  
+  return (
+    <div className="training-plan-form">
+      <h2>Criar Novo Plano de Treino</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">Plano de treino criado com sucesso!</div>}
+      
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Nome *</label>
+          <input
+            type="text"
+            name="name"
+            value={plan.name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Descrição *</label>
+          <textarea
+            name="description"
+            value={plan.description}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Objetivo</label>
+          <select
+            name="goal"
+            value={plan.goal}
+            onChange={handleChange}
+          >
+            <option value="">Selecione um objetivo</option>
+            <option value="HIPERTROFIA">Hipertrofia</option>
+            <option value="EMAGRECIMENTO">Emagrecimento</option>
+            <option value="RESISTENCIA">Resistência</option>
+            <option value="FORCA">Força</option>
+            <option value="OUTRO">Outro</option>
+          </select>
+        </div>
+        
+        <div className="form-group">
+          <label>Dificuldade</label>
+          <select
+            name="difficulty"
+            value={plan.difficulty}
+            onChange={handleChange}
+          >
+            <option value="">Selecione a dificuldade</option>
+            <option value="INICIANTE">Iniciante</option>
+            <option value="INTERMEDIARIO">Intermediário</option>
+            <option value="AVANCADO">Avançado</option>
+          </select>
+        </div>
+        
+        <div className="form-group">
+          <label>Duração (semanas)</label>
+          <input
+            type="number"
+            name="duration"
+            value={plan.duration}
+            onChange={handleChange}
+            min="1"
+          />
+        </div>
+        
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              name="isPublic"
+              checked={plan.isPublic}
+              onChange={handleChange}
+            />
+            Tornar plano público
+          </label>
+          <small>Planos públicos podem ser vistos e utilizados por outros personal trainers.</small>
+        </div>
+        
+        <div className="trainings-section">
+          <h3>Treinos</h3>
+          <button type="button" onClick={handleAddTraining}>
+            Adicionar Treino
+          </button>
+          
+          {plan.trainings.length === 0 && (
+            <p className="no-trainings">Nenhum treino adicionado. Clique no botão acima para adicionar.</p>
+          )}
+          
+          {plan.trainings.map((training, index) => (
+            <div key={index} className="training-item">
+              <div className="training-header">
+                <h4>Treino {index + 1}</h4>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTraining(index)}
+                >
+                  Remover
+                </button>
+              </div>
+              
+              <div className="training-form">
+                <div className="form-group">
+                  <label>Treino *</label>
+                  <select
+                    value={training.trainingId}
+                    onChange={(e) => handleTrainingChange(index, 'trainingId', Number(e.target.value))}
+                    required
+                  >
+                    {availableTrainings.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Dia da Semana *</label>
+                  <select
+                    value={training.dayOfWeek}
+                    onChange={(e) => handleTrainingChange(index, 'dayOfWeek', e.target.value)}
+                    required
+                  >
+                    <option value="MONDAY">Segunda-feira</option>
+                    <option value="TUESDAY">Terça-feira</option>
+                    <option value="WEDNESDAY">Quarta-feira</option>
+                    <option value="THURSDAY">Quinta-feira</option>
+                    <option value="FRIDAY">Sexta-feira</option>
+                    <option value="SATURDAY">Sábado</option>
+                    <option value="SUNDAY">Domingo</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Ordem *</label>
+                  <input
+                    type="number"
+                    value={training.order}
+                    onChange={(e) => handleTrainingChange(index, 'order', Number(e.target.value))}
+                    min="1"
+                    required
+                  />
+                  <small>Ordem do treino no dia (se houver mais de um treino no mesmo dia)</small>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <button type="submit" disabled={loading}>
+          {loading ? 'Criando...' : 'Criar Plano de Treino'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default TrainingPlanForm;
+```
+
+## Considerações de Design
+
+A interface de planos de treino do FitLocus segue as diretrizes de design da plataforma:
+
+- **Cores**: Fundo escuro (#202020), elementos de destaque em verde (#B4ED00), texto em branco (#F9F9F9)
+- **Tipografia**: Hanken Grotesk para texto e SUPERINE para títulos
+- **Layout**: Design minimalista com espaçamento generoso e hierarquia clara
+- **Componentes**: Campos de formulário com bordas arredondadas, botões com feedback visual ao interagir
+
+Para mais detalhes sobre o design, consulte as [diretrizes de marca](/design/brand-guidelines).
+
+## Considerações de Segurança
+
+1. **Validação de Dados**: Todos os dados de entrada são validados tanto no frontend quanto no backend para prevenir injeção de dados maliciosos.
+
+2. **Controle de Acesso**: Verificações rigorosas garantem que um usuário só possa acessar e modificar seus próprios planos de treino ou, no caso de personal trainers, os planos atribuídos aos seus alunos.
+
+3. **Sanitização de Dados**: Todos os dados de entrada são sanitizados antes de serem armazenados ou exibidos.
+
+4. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS para proteger dados sensíveis durante a transmissão.

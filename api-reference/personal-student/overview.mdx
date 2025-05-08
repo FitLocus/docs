@@ -1,0 +1,1242 @@
+---
+title: 'Relacionamento Personal-Aluno'
+description: 'Endpoints para gerenciamento de relacionamentos entre personal trainers e alunos no FitLocus'
+---
+
+# API de Relacionamento Personal-Aluno
+
+A API de Relacionamento Personal-Aluno do FitLocus fornece endpoints para gerenciamento das conexões entre personal trainers e seus alunos na plataforma.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A API de Relacionamento Personal-Aluno permite:
+    </p>
+    <ul>
+      <li>Envio e gerenciamento de convites de personal trainers para alunos</li>
+      <li>Aceitação ou recusa de convites por parte dos alunos</li>
+      <li>Listagem de alunos vinculados a um personal trainer</li>
+      <li>Listagem de personal trainers vinculados a um aluno</li>
+      <li>Remoção de vínculos entre personal trainers e alunos</li>
+    </ul>
+  </div>
+</Frame>
+
+## Modelo de Dados
+
+### PersonalStudentDTO
+
+O objeto PersonalStudentDTO é utilizado para transferência de dados de relacionamentos entre personal trainers e alunos:
+
+```json
+{
+  "id": 123,
+  "personalId": 456,
+  "personalName": "Carlos Oliveira",
+  "personalEmail": "carlos@exemplo.com",
+  "personalProfilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/456.jpg",
+  "studentId": 789,
+  "studentName": "João Silva",
+  "studentEmail": "joao@exemplo.com",
+  "studentProfilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/789.jpg",
+  "status": "ACTIVE",
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-01-15T14:30:00Z"
+}
+```
+
+### InviteDTO
+
+Objeto utilizado para envio de convites:
+
+```json
+{
+  "id": 234,
+  "personalId": 456,
+  "personalName": "Carlos Oliveira",
+  "studentEmail": "joao@exemplo.com",
+  "message": "Olá João, gostaria de ser seu personal trainer no FitLocus.",
+  "status": "PENDING",
+  "createdAt": "2023-05-20T15:30:00Z",
+  "expiresAt": "2023-05-27T15:30:00Z"
+}
+```
+
+## Endpoints Principais
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/personal/students/invite` | Envia um convite para um aluno |
+| GET | `/personal/invites` | Lista convites enviados pelo personal trainer |
+| GET | `/students/invites` | Lista convites recebidos pelo aluno |
+| POST | `/students/invites/{id}/accept` | Aceita um convite |
+| POST | `/students/invites/{id}/reject` | Recusa um convite |
+| GET | `/personal/students` | Lista alunos vinculados ao personal trainer |
+| GET | `/students/personals` | Lista personal trainers vinculados ao aluno |
+| DELETE | `/personal/students/{id}` | Remove vínculo com um aluno |
+| DELETE | `/students/personals/{id}` | Remove vínculo com um personal trainer |
+
+## Detalhes de Implementação
+
+### Autenticação
+
+Todos os endpoints requerem autenticação via token JWT no cabeçalho `Authorization`:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Para mais detalhes sobre autenticação, consulte a [documentação de autenticação](/api-reference/authentication).
+
+### Controle de Acesso
+
+O acesso aos endpoints é controlado com base no tipo de usuário:
+
+- Endpoints com prefixo `/personal/` só podem ser acessados por usuários do tipo PERSONAL
+- Endpoints com prefixo `/students/` só podem ser acessados por usuários do tipo ALUNO
+- Verificações adicionais garantem que um usuário só possa acessar dados relacionados a si mesmo
+
+## Enviar Convite para Aluno
+
+### Endpoint
+
+```
+POST /personal/students/invite
+```
+
+Este endpoint permite que um personal trainer envie um convite para um aluno.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | application/json | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| studentEmail | string | Sim | Email do aluno |
+| message | string | Não | Mensagem personalizada para o convite |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/personal/students/invite' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "studentEmail": "joao@exemplo.com",
+    "message": "Olá João, gostaria de ser seu personal trainer no FitLocus."
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "id": 234,
+  "personalId": 456,
+  "personalName": "Carlos Oliveira",
+  "studentEmail": "joao@exemplo.com",
+  "message": "Olá João, gostaria de ser seu personal trainer no FitLocus.",
+  "status": "PENDING",
+  "createdAt": "2023-05-20T15:30:00Z",
+  "expiresAt": "2023-05-27T15:30:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "studentEmail",
+      "message": "Email inválido"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas personal trainers podem enviar convites",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Usuário não encontrado com o email fornecido",
+  "success": false
+}
+```
+
+**Código:** 409 Conflict
+
+```json
+{
+  "message": "Já existe um convite pendente para este aluno",
+  "success": false
+}
+```
+
+**Código:** 422 Unprocessable Entity
+
+```json
+{
+  "message": "Você atingiu o limite de alunos para seu plano atual",
+  "success": false
+}
+```
+
+## Listar Convites Enviados
+
+### Endpoint
+
+```
+GET /personal/invites
+```
+
+Este endpoint retorna uma lista paginada de convites enviados pelo personal trainer.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| status | string | Não | Filtrar por status (PENDING, ACCEPTED, REJECTED, EXPIRED) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: createdAt,desc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/personal/invites?status=PENDING&page=0&size=10&sort=createdAt,desc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 234,
+      "personalId": 456,
+      "personalName": "Carlos Oliveira",
+      "studentEmail": "joao@exemplo.com",
+      "message": "Olá João, gostaria de ser seu personal trainer no FitLocus.",
+      "status": "PENDING",
+      "createdAt": "2023-05-20T15:30:00Z",
+      "expiresAt": "2023-05-27T15:30:00Z"
+    },
+    // Mais convites...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 1,
+  "totalElements": 3,
+  "last": true,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 3,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas personal trainers podem acessar este recurso",
+  "success": false
+}
+```
+
+## Listar Convites Recebidos
+
+### Endpoint
+
+```
+GET /students/invites
+```
+
+Este endpoint retorna uma lista paginada de convites recebidos pelo aluno.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| status | string | Não | Filtrar por status (PENDING, ACCEPTED, REJECTED, EXPIRED) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: createdAt,desc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/students/invites?status=PENDING&page=0&size=10&sort=createdAt,desc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 234,
+      "personalId": 456,
+      "personalName": "Carlos Oliveira",
+      "personalEmail": "carlos@exemplo.com",
+      "personalProfilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/456.jpg",
+      "message": "Olá João, gostaria de ser seu personal trainer no FitLocus.",
+      "status": "PENDING",
+      "createdAt": "2023-05-20T15:30:00Z",
+      "expiresAt": "2023-05-27T15:30:00Z"
+    },
+    // Mais convites...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 1,
+  "totalElements": 2,
+  "last": true,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 2,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas alunos podem acessar este recurso",
+  "success": false
+}
+```
+
+## Aceitar Convite
+
+### Endpoint
+
+```
+POST /students/invites/{id}/accept
+```
+
+Este endpoint permite que um aluno aceite um convite de personal trainer.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do convite |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/students/invites/234/accept' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 123,
+  "personalId": 456,
+  "personalName": "Carlos Oliveira",
+  "personalEmail": "carlos@exemplo.com",
+  "personalProfilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/456.jpg",
+  "studentId": 789,
+  "studentName": "João Silva",
+  "studentEmail": "joao@exemplo.com",
+  "studentProfilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/789.jpg",
+  "status": "ACTIVE",
+  "createdAt": "2023-05-20T15:35:00Z",
+  "updatedAt": "2023-05-20T15:35:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas alunos podem aceitar convites",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Você não pode aceitar convites de outros usuários",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Convite não encontrado",
+  "success": false
+}
+```
+
+**Código:** 409 Conflict
+
+```json
+{
+  "message": "Este convite já foi processado ou expirou",
+  "success": false
+}
+```
+
+## Recusar Convite
+
+### Endpoint
+
+```
+POST /students/invites/{id}/reject
+```
+
+Este endpoint permite que um aluno recuse um convite de personal trainer.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do convite |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/students/invites/234/reject' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 234,
+  "personalId": 456,
+  "personalName": "Carlos Oliveira",
+  "studentEmail": "joao@exemplo.com",
+  "message": "Olá João, gostaria de ser seu personal trainer no FitLocus.",
+  "status": "REJECTED",
+  "createdAt": "2023-05-20T15:30:00Z",
+  "expiresAt": "2023-05-27T15:30:00Z",
+  "updatedAt": "2023-05-20T15:40:00Z"
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas alunos podem recusar convites",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Você não pode recusar convites de outros usuários",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Convite não encontrado",
+  "success": false
+}
+```
+
+**Código:** 409 Conflict
+
+```json
+{
+  "message": "Este convite já foi processado ou expirou",
+  "success": false
+}
+```
+
+## Listar Alunos do Personal Trainer
+
+### Endpoint
+
+```
+GET /personal/students
+```
+
+Este endpoint retorna uma lista paginada de alunos vinculados ao personal trainer.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| name | string | Não | Filtrar por nome (busca parcial) |
+| status | string | Não | Filtrar por status (ACTIVE, INACTIVE) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: name,asc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/personal/students?status=ACTIVE&page=0&size=10&sort=name,asc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 123,
+      "personalId": 456,
+      "personalName": "Carlos Oliveira",
+      "studentId": 789,
+      "studentName": "João Silva",
+      "studentEmail": "joao@exemplo.com",
+      "studentProfilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/789.jpg",
+      "status": "ACTIVE",
+      "createdAt": "2023-05-20T15:35:00Z",
+      "updatedAt": "2023-05-20T15:35:00Z"
+    },
+    // Mais alunos...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 1,
+  "totalElements": 5,
+  "last": true,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 5,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas personal trainers podem acessar este recurso",
+  "success": false
+}
+```
+
+## Listar Personal Trainers do Aluno
+
+### Endpoint
+
+```
+GET /students/personals
+```
+
+Este endpoint retorna uma lista paginada de personal trainers vinculados ao aluno.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| name | string | Não | Filtrar por nome (busca parcial) |
+| status | string | Não | Filtrar por status (ACTIVE, INACTIVE) |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: name,asc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/students/personals?status=ACTIVE&page=0&size=10&sort=name,asc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 123,
+      "personalId": 456,
+      "personalName": "Carlos Oliveira",
+      "personalEmail": "carlos@exemplo.com",
+      "personalProfilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/456.jpg",
+      "studentId": 789,
+      "studentName": "João Silva",
+      "status": "ACTIVE",
+      "createdAt": "2023-05-20T15:35:00Z",
+      "updatedAt": "2023-05-20T15:35:00Z"
+    },
+    // Mais personal trainers...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 1,
+  "totalElements": 2,
+  "last": true,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 2,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas alunos podem acessar este recurso",
+  "success": false
+}
+```
+
+## Remover Vínculo com Aluno
+
+### Endpoint
+
+```
+DELETE /personal/students/{id}
+```
+
+Este endpoint permite que um personal trainer remova o vínculo com um aluno.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do relacionamento personal-aluno |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X DELETE \
+  'http://localhost:8080/api/personal/students/123' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 204 No Content
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas personal trainers podem acessar este recurso",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Você não pode remover vínculos de outros personal trainers",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Relacionamento não encontrado",
+  "success": false
+}
+```
+
+## Remover Vínculo com Personal Trainer
+
+### Endpoint
+
+```
+DELETE /students/personals/{id}
+```
+
+Este endpoint permite que um aluno remova o vínculo com um personal trainer.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do relacionamento personal-aluno |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X DELETE \
+  'http://localhost:8080/api/students/personals/123' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 204 No Content
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas alunos podem acessar este recurso",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Você não pode remover vínculos de outros alunos",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Relacionamento não encontrado",
+  "success": false
+}
+```
+
+## Implementação no Frontend
+
+### Componente de Envio de Convite
+
+```tsx
+// Exemplo de componente de envio de convite em React
+import React, { useState } from 'react';
+import axios from 'axios';
+
+const InviteForm = () => {
+  const [invite, setInvite] = useState({
+    studentEmail: '',
+    message: ''
+  });
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setInvite(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validação básica
+    if (!invite.studentEmail) {
+      setError('Email do aluno é obrigatório');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+    
+    try {
+      const response = await axios.post('/personal/students/invite', invite);
+      
+      setLoading(false);
+      setSuccess(true);
+      // Resetar formulário
+      setInvite({
+        studentEmail: '',
+        message: ''
+      });
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.message || 'Erro ao enviar convite');
+    }
+  };
+  
+  return (
+    <div className="invite-form">
+      <h2>Convidar Aluno</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">Convite enviado com sucesso!</div>}
+      
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Email do Aluno *</label>
+          <input
+            type="email"
+            name="studentEmail"
+            value={invite.studentEmail}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Mensagem</label>
+          <textarea
+            name="message"
+            value={invite.message}
+            onChange={handleChange}
+            placeholder="Opcional: Adicione uma mensagem personalizada ao convite"
+          />
+        </div>
+        
+        <button type="submit" disabled={loading}>
+          {loading ? 'Enviando...' : 'Enviar Convite'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default InviteForm;
+```
+
+### Componente de Listagem de Alunos
+
+```tsx
+// Exemplo de componente de listagem de alunos em React
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const StudentList = () => {
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    name: '',
+    status: 'ACTIVE',
+    page: 0,
+    size: 10,
+    sort: 'name,asc'
+  });
+  
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        
+        // Construir query string a partir dos filtros
+        const queryParams = new URLSearchParams();
+        if (filters.name) queryParams.append('name', filters.name);
+        if (filters.status) queryParams.append('status', filters.status);
+        queryParams.append('page', filters.page.toString());
+        queryParams.append('size', filters.size.toString());
+        queryParams.append('sort', filters.sort);
+        
+        const response = await axios.get(`/personal/students?${queryParams.toString()}`);
+        setStudents(response.data.content);
+        setLoading(false);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Erro ao carregar alunos');
+        setLoading(false);
+      }
+    };
+    
+    fetchStudents();
+  }, [filters]);
+  
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value,
+      page: 0 // Reset page when filters change
+    }));
+  };
+  
+  const handleRemoveStudent = async (id) => {
+    if (!window.confirm('Tem certeza que deseja remover este aluno?')) {
+      return;
+    }
+    
+    try {
+      await axios.delete(`/personal/students/${id}`);
+      
+      // Atualizar lista de alunos
+      setStudents(prev => prev.filter(student => student.id !== id));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erro ao remover aluno');
+    }
+  };
+  
+  if (loading) return <div>Carregando...</div>;
+  if (error) return <div>Erro: {error}</div>;
+  
+  return (
+    <div className="student-list">
+      <h2>Meus Alunos</h2>
+      
+      <div className="filters">
+        <input
+          type="text"
+          name="name"
+          placeholder="Buscar por nome"
+          value={filters.name}
+          onChange={handleFilterChange}
+        />
+        
+        <select
+          name="status"
+          value={filters.status}
+          onChange={handleFilterChange}
+        >
+          <option value="ACTIVE">Ativos</option>
+          <option value="INACTIVE">Inativos</option>
+          <option value="">Todos</option>
+        </select>
+      </div>
+      
+      {students.length === 0 ? (
+        <p className="no-students">Nenhum aluno encontrado.</p>
+      ) : (
+        <div className="student-grid">
+          {students.map(student => (
+            <div key={student.id} className="student-card">
+              <img
+                src={student.studentProfilePicture || '/default-avatar.png'}
+                alt={student.studentName}
+                className="profile-picture"
+              />
+              <h3>{student.studentName}</h3>
+              <p className="email">{student.studentEmail}</p>
+              <p className="since">Desde: {new Date(student.createdAt).toLocaleDateString()}</p>
+              <div className="actions">
+                <button className="view-details">Ver Detalhes</button>
+                <button
+                  className="remove"
+                  onClick={() => handleRemoveStudent(student.id)}
+                >
+                  Remover
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      <div className="pagination">
+        <button
+          disabled={filters.page === 0}
+          onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+        >
+          Anterior
+        </button>
+        <span>Página {filters.page + 1}</span>
+        <button
+          disabled={students.length < filters.size}
+          onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+        >
+          Próxima
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default StudentList;
+```
+
+## Considerações de Design
+
+A interface de gerenciamento de relacionamentos personal-aluno do FitLocus segue as diretrizes de design da plataforma:
+
+- **Cores**: Fundo escuro (#202020), elementos de destaque em verde (#B4ED00), texto em branco (#F9F9F9)
+- **Tipografia**: Hanken Grotesk para texto e SUPERINE para títulos
+- **Layout**: Design minimalista com espaçamento generoso e hierarquia clara
+- **Componentes**: Campos de formulário com bordas arredondadas, botões com feedback visual ao interagir
+
+Para mais detalhes sobre o design, consulte as [diretrizes de marca](/design/brand-guidelines).
+
+## Considerações de Segurança
+
+1. **Validação de Dados**: Todos os dados de entrada são validados tanto no frontend quanto no backend para prevenir injeção de dados maliciosos.
+
+2. **Controle de Acesso**: Verificações rigorosas garantem que um usuário só possa acessar e modificar seus próprios relacionamentos.
+
+3. **Sanitização de Dados**: Todos os dados de entrada são sanitizados antes de serem armazenados ou exibidos.
+
+4. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS para proteger dados sensíveis durante a transmissão.
+
+5. **Limites de Plano**: O sistema verifica se o personal trainer atingiu o limite de alunos do seu plano atual antes de permitir novos convites.
+
+## Regras de Negócio
+
+1. **Limites de Alunos por Plano**:
+   - Plano Básico: até 5 alunos
+   - Plano Intermediário: até 15 alunos
+   - Plano Avançado: até 30 alunos
+   - Plano Premium: ilimitado
+
+2. **Expiração de Convites**: Convites não aceitos expiram automaticamente após 7 dias.
+
+3. **Restrições de Vínculo**: Um aluno pode ter múltiplos personal trainers, mas cada relacionamento é gerenciado independentemente.
+
+4. **Notificações**: O sistema envia notificações por email quando:
+   - Um convite é enviado
+   - Um convite é aceito ou recusado
+   - Um vínculo é removido
