@@ -1,0 +1,305 @@
+---
+title: 'Configuração do Ambiente'
+description: 'Tutorial passo a passo para configurar o ambiente de desenvolvimento do FitLocus'
+---
+
+# Configuração do Ambiente de Desenvolvimento
+
+Este tutorial guiará você através do processo de configuração do ambiente de desenvolvimento para trabalhar com o ecossistema FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      Neste tutorial, você aprenderá a:
+    </p>
+    <ul>
+      <li>Configurar o ambiente de desenvolvimento para o backend (Java 21 + Spring Boot)</li>
+      <li>Configurar o ambiente para o frontend do aplicativo (React Native + Capacitor)</li>
+      <li>Configurar o ambiente para a landing page (Next.js)</li>
+      <li>Configurar o banco de dados PostgreSQL</li>
+      <li>Configurar as integrações com serviços externos</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos
+
+Antes de começar, certifique-se de ter instalado:
+
+- Git
+- Java 21 (JDK)
+- Node.js 18+ e npm/yarn/pnpm
+- Docker e Docker Compose
+- IDE de sua preferência (recomendamos IntelliJ IDEA para backend e VS Code para frontend)
+
+## 1. Configuração do Backend
+
+### 1.1 Clone o Repositório
+
+```bash
+git clone https://github.com/logoscti/fitlocus-backend.git
+cd fitlocus-backend
+```
+
+### 1.2 Configuração do Java 21
+
+Certifique-se de ter o Java 21 instalado:
+
+```bash
+java -version
+```
+
+Se você não tiver o Java 21, você pode instalá-lo usando SDKMan:
+
+```bash
+# Instalar SDKMan
+curl -s "https://get.sdkman.io" | bash
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# Instalar Java 21
+sdk install java 21-open
+sdk use java 21-open
+```
+
+Ou usando o apt (Ubuntu):
+
+```bash
+sudo apt update
+sudo apt install openjdk-21-jdk
+```
+
+### 1.3 Configuração do Banco de Dados
+
+Inicie o PostgreSQL usando Docker:
+
+```bash
+docker run --name fitlocus-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=fitlocus -p 5432:5432 -d postgres:14
+```
+
+### 1.4 Configuração do Projeto
+
+Crie um arquivo `application-dev.properties` em `src/main/resources/`:
+
+```properties
+# Configurações do Banco de Dados
+spring.datasource.url=jdbc:postgresql://localhost:5432/fitlocus
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# Configurações JWT
+jwt.secret=seu_segredo_jwt_aqui
+jwt.expiration=86400000
+
+# Configurações do Firebase
+firebase.credentials.path=caminho/para/firebase-credentials.json
+
+# Configurações do Stripe
+stripe.api.key=sua_chave_api_stripe
+stripe.webhook.secret=seu_segredo_webhook_stripe
+
+# Configurações de Armazenamento
+storage.location=uploads
+```
+
+### 1.5 Executando o Backend
+
+Usando Gradle:
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=dev'
+```
+
+O backend estará disponível em `http://localhost:8080/api`.
+
+## 2. Configuração do Frontend do Aplicativo
+
+### 2.1 Clone o Repositório
+
+```bash
+git clone https://github.com/logoscti/fitlocus-app-front.git
+cd fitlocus-app-front
+```
+
+### 2.2 Instalação de Dependências
+
+```bash
+npm install
+# ou
+yarn install
+# ou
+pnpm install
+```
+
+### 2.3 Configuração do Ambiente
+
+Crie um arquivo `.env.local` na raiz do projeto:
+
+```
+REACT_APP_API_URL=http://localhost:8080/api
+REACT_APP_FIREBASE_API_KEY=sua_api_key_firebase
+REACT_APP_FIREBASE_AUTH_DOMAIN=seu_auth_domain_firebase
+REACT_APP_FIREBASE_PROJECT_ID=seu_project_id_firebase
+REACT_APP_FIREBASE_STORAGE_BUCKET=seu_storage_bucket_firebase
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=seu_messaging_sender_id_firebase
+REACT_APP_FIREBASE_APP_ID=seu_app_id_firebase
+```
+
+### 2.4 Executando o Frontend
+
+```bash
+npm start
+# ou
+yarn start
+# ou
+pnpm start
+```
+
+O frontend estará disponível em `http://localhost:3000`.
+
+### 2.5 Configuração do Capacitor (Opcional)
+
+Para desenvolvimento mobile com Capacitor:
+
+```bash
+npm install @capacitor/core @capacitor/cli
+npx cap init FitLocus com.fitlocus.app
+npm install @capacitor/android @capacitor/ios
+npx cap add android
+npx cap add ios
+```
+
+Para sincronizar as alterações:
+
+```bash
+npm run build
+npx cap sync
+```
+
+Para abrir no Android Studio:
+
+```bash
+npx cap open android
+```
+
+Para abrir no Xcode:
+
+```bash
+npx cap open ios
+```
+
+## 3. Configuração da Landing Page
+
+### 3.1 Clone o Repositório
+
+```bash
+git clone https://github.com/logoscti/fitlocus-landing.git
+cd fitlocus-landing
+```
+
+### 3.2 Instalação de Dependências
+
+```bash
+npm install
+# ou
+yarn install
+# ou
+pnpm install
+```
+
+### 3.3 Configuração do Ambiente
+
+Crie um arquivo `.env.local` na raiz do projeto:
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_STRIPE_PUBLIC_KEY=sua_chave_publica_stripe
+```
+
+### 3.4 Executando a Landing Page
+
+```bash
+npm run dev
+# ou
+yarn dev
+# ou
+pnpm dev
+```
+
+A landing page estará disponível em `http://localhost:3000`.
+
+## 4. Configuração de Serviços Externos
+
+### 4.1 Firebase
+
+1. Acesse o [Console do Firebase](https://console.firebase.google.com/)
+2. Crie um novo projeto
+3. Adicione um aplicativo web
+4. Copie as configurações para os arquivos `.env.local`
+5. Ative a autenticação por email/senha e Google
+6. Baixe o arquivo de credenciais do service account e salve-o no backend
+
+### 4.2 Stripe
+
+1. Crie uma conta no [Stripe](https://stripe.com/)
+2. Obtenha suas chaves de API (pública e secreta)
+3. Configure um webhook para `http://seu-dominio.com/api/payments/webhook`
+4. Copie as chaves para os arquivos de configuração
+
+### 4.3 Google Cloud Storage (Opcional)
+
+1. Crie um bucket no [Google Cloud Storage](https://console.cloud.google.com/storage)
+2. Configure as permissões de acesso
+3. Atualize as configurações no backend
+
+## 5. Verificação da Configuração
+
+### 5.1 Verificação do Backend
+
+1. Acesse `http://localhost:8080/api/health` para verificar se o backend está funcionando
+2. Verifique os logs para garantir que não há erros
+
+### 5.2 Verificação do Frontend
+
+1. Acesse `http://localhost:3000` para verificar se o frontend está funcionando
+2. Tente fazer login para verificar a integração com o backend
+
+### 5.3 Verificação da Landing Page
+
+1. Acesse `http://localhost:3000` para verificar se a landing page está funcionando
+2. Verifique se os formulários estão enviando dados corretamente
+
+## Solução de Problemas
+
+### Problemas Comuns no Backend
+
+| Problema | Causa Provável | Solução |
+|----------|----------------|---------|
+| Erro de conexão com o banco de dados | PostgreSQL não está rodando | Verifique se o container Docker está ativo |
+| Erro de versão do Java | Versão incorreta do Java | Certifique-se de estar usando Java 21 |
+| Erro de porta em uso | Porta 8080 já está em uso | Altere a porta no `application-dev.properties` |
+
+### Problemas Comuns no Frontend
+
+| Problema | Causa Provável | Solução |
+|----------|----------------|---------|
+| Erro de CORS | Configuração incorreta no backend | Verifique as configurações de CORS no backend |
+| Erro de conexão com a API | Backend não está rodando | Inicie o backend e verifique a URL da API |
+| Erro de dependências | Node_modules desatualizado | Delete node_modules e reinstale as dependências |
+
+## Próximos Passos
+
+Agora que você configurou seu ambiente de desenvolvimento, você pode:
+
+1. [Criar um Plano de Treino](/tutorials/create-training-plan)
+2. [Implementar Autenticação](/tutorials/implement-authentication)
+3. [Integrar Gateway de Pagamento](/tutorials/integrate-payment-gateway)
+
+## Recursos Adicionais
+
+- [Documentação da API](/api-reference/authentication)
+- [Exemplos de Código de Integração](/integration/overview)
+- [Diagramas de Fluxo](/diagrams/overview)
