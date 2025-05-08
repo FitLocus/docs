@@ -1,71 +1,96 @@
 ---
-title: Introduction
-description: "Welcome to the home of your new documentation"
+title: Introdução
+description: "Bem-vindo à documentação oficial do FitLocus"
 ---
 
 <img
   className="block dark:hidden"
-  src="/images/hero-light.png"
-  alt="Hero Light"
+  src="/logo/light.svg"
+  alt="Logo FitLocus Light"
 />
 <img
   className="hidden dark:block"
-  src="/images/hero-dark.png"
-  alt="Hero Dark"
+  src="/logo/dark.svg"
+  alt="Logo FitLocus Dark"
 />
 
-## Setting up
+# FitLocus
 
-The first step to world-class documentation is setting up your editing environments.
+O **FitLocus** é a nova forma de pensar corpo, saúde e rotina. Criado para quem treina sozinho ou com o acompanhamento de um personal, ele reúne planos de treino, IA, histórico de progresso, agendamentos, notificações e cobrança automática – tudo em um só lugar.
+
+## Comece agora
+
+Configure o projeto localmente e entenda sua arquitetura técnica.
 
 <CardGroup cols={2}>
   <Card
-    title="Edit Your Docs"
-    icon="pen-to-square"
-    href="https://mintlify.com/docs/quickstart"
+    title="Guia Rápido"
+    icon="rocket"
+    href="/quickstart"
   >
-    Get your docs set up locally for easy development
+    Aprenda a instalar o backend e o frontend localmente em poucos passos.
   </Card>
   <Card
-    title="Preview Changes"
-    icon="image"
-    href="https://mintlify.com/docs/development"
+    title="Ambiente de Desenvolvimento"
+    icon="laptop-code"
+    href="/development"
   >
-    Preview your changes before you push to make sure they're perfect
+    Veja como configurar o projeto e contribuir com o código.
   </Card>
 </CardGroup>
 
-## Make it yours
+## Documentação técnica
 
-Update your docs to your brand and add valuable content for the best user conversion.
+Explore os recursos disponíveis no FitLocus e como utilizá-los.
 
 <CardGroup cols={2}>
   <Card
-    title="Customize Style"
+    title="API de Autenticação"
+    icon="key"
+    href="/api-reference/authentication"
+  >
+    Endpoints para login, registro, Firebase Auth e JWT.
+  </Card>
+  <Card
+    title="Integração com Pagamentos"
+    icon="credit-card"
+    href="/essentials/integrations"
+  >
+    Webhooks e cobranças via PIX com o AbacatePay.
+  </Card>
+  <Card
+    title="Planos e Assinaturas"
+    icon="dumbbell"
+    href="/essentials/plans"
+  >
+    Lógica de planos freemium, premium mensal, semestral e anual.
+  </Card>
+  <Card
+    title="Infraestrutura do Projeto"
+    icon="server"
+    href="/essentials/architecture"
+  >
+    Arquitetura com GCP, Cloud Run, banco PostgreSQL e CI/CD automatizado.
+  </Card>
+</CardGroup>
+
+## Identidade e Design
+
+A estética do FitLocus é minimalista, moderna e funcional.
+
+<CardGroup cols={2}>
+  <Card
+    title="Identidade Visual"
     icon="palette"
-    href="https://mintlify.com/docs/settings/global"
+    href="/essentials/design"
   >
-    Customize your docs to your company's colors and brands
+    Saiba mais sobre as fontes, cores e propósito visual do projeto.
   </Card>
   <Card
-    title="Reference APIs"
-    icon="code"
-    href="https://mintlify.com/docs/api-playground/openapi"
-  >
-    Automatically generate endpoints from an OpenAPI spec
-  </Card>
-  <Card
-    title="Add Components"
+    title="Componentes Visuais"
     icon="screwdriver-wrench"
     href="https://mintlify.com/docs/content/components/accordions"
   >
-    Build interactive features and designs to guide your users
-  </Card>
-  <Card
-    title="Get Inspiration"
-    icon="stars"
-    href="https://mintlify.com/customers"
-  >
-    Check out our showcase of our favorite documentation
+    Utilize componentes interativos na documentação.
   </Card>
 </CardGroup>
