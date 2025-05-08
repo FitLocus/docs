@@ -1,20 +1,20 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "FitLocus Documentation",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#B4ED00",
+    "light": "#B4ED00",
+    "dark": "#202020"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Guias",
         "groups": [
           {
-            "group": "Get Started",
+            "group": "Introdução",
             "pages": [
               "index",
               "quickstart",
@@ -22,14 +22,32 @@
             ]
           },
           {
-            "group": "Essentials",
+            "group": "Arquitetura",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/settings",
-              "essentials/navigation",
-              "essentials/reusable-snippets"
+              "architecture/overview",
+              "architecture/backend",
+              "architecture/frontend",
+              "architecture/landing",
+              "architecture/authentication",
+              "architecture/database"
+            ]
+          },
+          {
+            "group": "Design",
+            "pages": [
+              "design/brand-guidelines",
+              "design/components",
+              "design/typography",
+              "design/colors"
+            ]
+          },
+          {
+            "group": "Regras de Negócio",
+            "pages": [
+              "business/subscription-model",
+              "business/user-types",
+              "business/personal-student-relationship",
+              "business/training-management"
             ]
           }
         ]
@@ -38,18 +56,49 @@
         "tab": "API Reference",
         "groups": [
           {
-            "group": "API Documentation",
+            "group": "Introdução",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/introduction",
+              "api-reference/authentication"
             ]
           },
           {
-            "group": "Endpoint Examples",
+            "group": "Usuários",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/users/overview",
+              "api-reference/users/registration",
+              "api-reference/users/profile"
+            ]
+          },
+          {
+            "group": "Exercícios",
+            "pages": [
+              "api-reference/exercises/overview",
+              "api-reference/exercises/create",
+              "api-reference/exercises/execution"
+            ]
+          },
+          {
+            "group": "Treinos",
+            "pages": [
+              "api-reference/trainings/overview",
+              "api-reference/trainings/create",
+              "api-reference/trainings/execution",
+              "api-reference/trainings/plans"
+            ]
+          },
+          {
+            "group": "Personal-Aluno",
+            "pages": [
+              "api-reference/personal-student/overview",
+              "api-reference/personal-student/relationship"
+            ]
+          },
+          {
+            "group": "Pagamentos",
+            "pages": [
+              "api-reference/payments/overview",
+              "api-reference/payments/webhook"
             ]
           }
         ]
@@ -58,19 +107,14 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/logoscti/fitlocus-backend",
+          "icon": "github"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Landing Page",
+          "href": "https://fitlocus.com",
+          "icon": "browser"
         }
       ]
     }
@@ -82,21 +126,20 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "Suporte",
+        "href": "mailto:suporte@fitlocus.com"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://app.fitlocus.com"
     }
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "instagram": "https://instagram.com/fitlocus",
+      "github": "https://github.com/logoscti"
     }
   }
 }

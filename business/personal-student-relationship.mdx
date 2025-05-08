@@ -1,0 +1,300 @@
+---
+title: 'Relacionamento Personal-Aluno'
+description: 'Gerenciamento do vínculo entre personal trainers e alunos no FitLocus'
+---
+
+# Relacionamento Personal-Aluno
+
+O relacionamento entre personal trainers e alunos é um componente central do FitLocus, permitindo que profissionais de educação física gerenciem seus clientes e criem treinos personalizados para cada um deles.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      O FitLocus implementa um sistema de relacionamento entre personal trainers e alunos que permite:
+    </p>
+    <ul>
+      <li>Vinculação segura entre profissionais e seus clientes</li>
+      <li>Controle de acesso baseado nesse relacionamento</li>
+      <li>Atribuição de treinos personalizados</li>
+      <li>Acompanhamento de progresso individualizado</li>
+      <li>Comunicação direta entre as partes</li>
+    </ul>
+  </div>
+</Frame>
+
+## Modelo de Dados
+
+O relacionamento é implementado através da entidade `PersonalStudent`, que estabelece uma relação muitos-para-muitos entre usuários do tipo `PERSONAL` e usuários do tipo `ALUNO`:
+
+```java
+@Entity
+@Table(name = "personal_student")
+public class PersonalStudent {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "personal_id")
+    private Long personalId;
+    
+    @Column(name = "student_id")
+    private Long studentId;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @Column(name = "status")
+    @Enumerated(EnumType.STRING)
+    private RelationshipStatus status;
+    
+    // Getters e setters...
+}
+```
+
+O status do relacionamento pode ser:
+
+```java
+public enum RelationshipStatus {
+    PENDING,    // Convite enviado, aguardando aceitação
+    ACTIVE,     // Relacionamento ativo
+    INACTIVE    // Relacionamento pausado ou encerrado
+}
+```
+
+## Fluxo de Vinculação
+
+### 1. Convite do Personal Trainer
+
+O personal trainer inicia o processo enviando um convite para o aluno:
+
+```java
+@PostMapping("/invite")
+public ResponseEntity<PersonalStudentDTO> inviteStudent(@RequestBody InviteRequest request) {
+    // Validação e criação do relacionamento com status PENDING
+}
+```
+
+O convite pode ser enviado de duas formas:
+- Para um usuário já cadastrado no sistema (via email)
+- Para um novo usuário (gerando um link de convite)
+
+### 2. Aceitação pelo Aluno
+
+O aluno recebe o convite e pode aceitá-lo:
+
+```java
+@PostMapping("/accept-invitation/{invitationId}")
+public ResponseEntity<PersonalStudentDTO> acceptInvitation(@PathVariable Long invitationId) {
+    // Atualização do status para ACTIVE
+}
+```
+
+### 3. Gerenciamento do Relacionamento
+
+Após estabelecido, o relacionamento pode ser gerenciado por ambas as partes:
+
+```java
+@PutMapping("/{relationshipId}/status")
+public ResponseEntity<PersonalStudentDTO> updateStatus(
+        @PathVariable Long relationshipId,
+        @RequestBody StatusUpdateRequest request) {
+    // Atualização do status (ACTIVE ou INACTIVE)
+}
+```
+
+## Segurança e Controle de Acesso
+
+Um aspecto crítico do sistema é garantir que personal trainers só possam acessar dados de seus próprios alunos. Isso é implementado através de validações em todas as operações:
+
+```java
+// Exemplo de validação de acesso
+public boolean canAccessStudentData(Long personalId, Long studentId) {
+    return personalStudentRepository.existsByPersonalIdAndStudentIdAndStatus(
+        personalId, 
+        studentId, 
+        RelationshipStatus.ACTIVE
+    );
+}
+```
+
+Nas consultas ao banco de dados, todas as operações que envolvem dados de alunos devem incluir um filtro pelo relacionamento:
+
+```java
+// Exemplo de consulta segura
+@GetMapping("/students/{studentId}/trainings")
+public ResponseEntity<List<TrainingDTO>> getStudentTrainings(
+        @PathVariable Long studentId,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long personalId = userService.getUserIdFromUserDetails(userDetails);
+    
+    // Verificação de relacionamento
+    if (!personalStudentService.canAccessStudentData(personalId, studentId)) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+    
+    // Busca de treinos
+    List<TrainingDTO> trainings = trainingService.getTrainingsByStudentId(studentId);
+    return ResponseEntity.ok(trainings);
+}
+```
+
+## Limites de Alunos por Personal
+
+O número de alunos que um personal trainer pode gerenciar é limitado pelo seu tipo de assinatura:
+
+| Plano | Limite de Alunos |
+|-------|------------------|
+| PERSONAL_INICIANTE | 10 |
+| PERSONAL_BASIC | 50 |
+| PERSONAL_INTERMEDIARIO | 100 |
+| PERSONAL_AVANCADO | 200 |
+| PERSONAL_ILIMITADO | Ilimitado |
+
+O sistema implementa validações para garantir que esses limites sejam respeitados:
+
+```java
+// Exemplo de validação de limite
+public boolean canAddMoreStudents(Long personalId) {
+    User personal = userRepository.findById(personalId)
+        .orElseThrow(() -> new ResourceNotFoundException("Personal not found"));
+    
+    int currentStudentCount = personalStudentRepository
+        .countByPersonalIdAndStatus(personalId, RelationshipStatus.ACTIVE);
+    
+    return switch (personal.getSubscriptionType()) {
+        case PERSONAL_INICIANTE -> currentStudentCount < 10;
+        case PERSONAL_BASIC -> currentStudentCount < 50;
+        case PERSONAL_INTERMEDIARIO -> currentStudentCount < 100;
+        case PERSONAL_AVANCADO -> currentStudentCount < 200;
+        case PERSONAL_ILIMITADO -> true;
+        default -> false;
+    };
+}
+```
+
+## Atribuição de Treinos
+
+O relacionamento personal-aluno é a base para a atribuição de treinos personalizados:
+
+```java
+@PostMapping("/students/{studentId}/assign-training")
+public ResponseEntity<TrainingAssignmentDTO> assignTraining(
+        @PathVariable Long studentId,
+        @RequestBody TrainingAssignmentRequest request,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long personalId = userService.getUserIdFromUserDetails(userDetails);
+    
+    // Verificação de relacionamento
+    if (!personalStudentService.canAccessStudentData(personalId, studentId)) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+    
+    // Atribuição do treino
+    TrainingAssignmentDTO assignment = trainingService.assignTrainingToStudent(
+        request.getTrainingId(), 
+        studentId, 
+        request.getScheduledDate()
+    );
+    
+    return ResponseEntity.ok(assignment);
+}
+```
+
+## Acompanhamento de Progresso
+
+O personal trainer pode acompanhar o progresso de seus alunos através de relatórios e métricas:
+
+```java
+@GetMapping("/students/{studentId}/progress")
+public ResponseEntity<StudentProgressDTO> getStudentProgress(
+        @PathVariable Long studentId,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long personalId = userService.getUserIdFromUserDetails(userDetails);
+    
+    // Verificação de relacionamento
+    if (!personalStudentService.canAccessStudentData(personalId, studentId)) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+    
+    // Busca de progresso
+    StudentProgressDTO progress = progressService.getStudentProgress(studentId);
+    return ResponseEntity.ok(progress);
+}
+```
+
+## Interface do Usuário
+
+### Visão do Personal Trainer
+
+O personal trainer tem acesso a uma interface que permite:
+
+- Visualizar lista de todos os seus alunos
+- Enviar convites para novos alunos
+- Gerenciar relacionamentos existentes
+- Atribuir treinos a alunos específicos
+- Acompanhar o progresso individual de cada aluno
+- Comunicar-se diretamente com os alunos
+
+### Visão do Aluno
+
+O aluno tem acesso a uma interface que permite:
+
+- Visualizar seu personal trainer atual
+- Aceitar ou recusar convites de personal trainers
+- Visualizar treinos atribuídos pelo personal
+- Compartilhar progresso e métricas com o personal
+- Comunicar-se diretamente com o personal
+
+## Considerações Importantes
+
+1. **Privacidade de Dados**: O sistema garante que dados sensíveis dos alunos só sejam acessíveis pelos personal trainers vinculados a eles.
+
+2. **Múltiplos Relacionamentos**: Um aluno pode ter relacionamentos com múltiplos personal trainers, permitindo especialização (ex: um para musculação, outro para corrida).
+
+3. **Histórico de Relacionamentos**: O sistema mantém um histórico de todos os relacionamentos, mesmo após seu encerramento, para fins de auditoria e continuidade.
+
+4. **Notificações**: Eventos importantes no ciclo de vida do relacionamento (convites, aceitações, atribuições de treino) geram notificações para ambas as partes.
+
+5. **Transição de Personal**: O sistema facilita a transição quando um aluno muda de personal trainer, preservando histórico de treinos e progresso.
+
+## Implementação Frontend
+
+No frontend, o relacionamento personal-aluno é gerenciado através de serviços e componentes específicos:
+
+```typescript
+// Exemplo de serviço para gerenciamento de relacionamentos
+export const personalStudentService = {
+  // Listar alunos de um personal
+  getStudents: async () => {
+    const response = await api.get('/personal/students');
+    return response.data;
+  },
+  
+  // Enviar convite para um aluno
+  inviteStudent: async (email: string) => {
+    const response = await api.post('/personal/invite', { email });
+    return response.data;
+  },
+  
+  // Aceitar convite (visão do aluno)
+  acceptInvitation: async (invitationId: number) => {
+    const response = await api.post(`/student/accept-invitation/${invitationId}`);
+    return response.data;
+  },
+  
+  // Atualizar status do relacionamento
+  updateRelationshipStatus: async (relationshipId: number, status: 'ACTIVE' | 'INACTIVE') => {
+    const response = await api.put(`/personal-student/${relationshipId}/status`, { status });
+    return response.data;
+  }
+};
+```
+
+## Conclusão
+
+O relacionamento personal-aluno é um pilar fundamental do FitLocus, permitindo uma experiência personalizada e segura para ambas as partes. A implementação cuidadosa deste relacionamento, com foco em segurança, privacidade e usabilidade, é essencial para o sucesso da plataforma.

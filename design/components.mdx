@@ -1,0 +1,343 @@
+---
+title: 'Componentes UI'
+description: 'Biblioteca de componentes visuais do FitLocus'
+---
+
+# Componentes UI
+
+O FitLocus utiliza uma biblioteca de componentes consistente em todas as suas interfaces, garantindo uma experiência de usuário coesa e de alta qualidade. Esta página documenta os principais componentes utilizados no aplicativo móvel e na landing page.
+
+## Princípios de Design
+
+Todos os componentes do FitLocus seguem estes princípios fundamentais:
+
+- **Consistência**: Aparência e comportamento uniformes em toda a plataforma
+- **Acessibilidade**: Componentes projetados para serem acessíveis a todos os usuários
+- **Responsividade**: Adaptação a diferentes tamanhos de tela e dispositivos
+- **Minimalismo**: Design limpo e focado, sem elementos desnecessários
+- **Feedback**: Respostas visuais claras para interações do usuário
+
+## Botões
+
+Os botões são componentes fundamentais para ações do usuário.
+
+<Frame>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div>
+      <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Botão Primário</h3>
+      <button style={{ backgroundColor: '#B4ED00', color: '#202020', border: 'none', padding: '12px 24px', borderRadius: '8px', fontFamily: 'Hanken Grotesk, sans-serif', fontWeight: '500', fontSize: '16px' }}>
+        Botão Primário
+      </button>
+    </div>
+    <div>
+      <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Botão Secundário</h3>
+      <button style={{ backgroundColor: '#202020', color: '#F9F9F9', border: 'none', padding: '12px 24px', borderRadius: '8px', fontFamily: 'Hanken Grotesk, sans-serif', fontWeight: '500', fontSize: '16px' }}>
+        Botão Secundário
+      </button>
+    </div>
+    <div>
+      <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Botão Outline</h3>
+      <button style={{ backgroundColor: 'transparent', color: '#202020', border: '2px solid #B4ED00', padding: '12px 24px', borderRadius: '8px', fontFamily: 'Hanken Grotesk, sans-serif', fontWeight: '500', fontSize: '16px' }}>
+        Botão Outline
+      </button>
+    </div>
+  </div>
+</Frame>
+
+### Variações de Tamanho
+
+<Frame>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+    <button style={{ backgroundColor: '#B4ED00', color: '#202020', border: 'none', padding: '8px 16px', borderRadius: '6px', fontFamily: 'Hanken Grotesk, sans-serif', fontWeight: '500', fontSize: '14px' }}>
+      Pequeno
+    </button>
+    <button style={{ backgroundColor: '#B4ED00', color: '#202020', border: 'none', padding: '12px 24px', borderRadius: '8px', fontFamily: 'Hanken Grotesk, sans-serif', fontWeight: '500', fontSize: '16px' }}>
+      Médio
+    </button>
+    <button style={{ backgroundColor: '#B4ED00', color: '#202020', border: 'none', padding: '16px 32px', borderRadius: '10px', fontFamily: 'Hanken Grotesk, sans-serif', fontWeight: '500', fontSize: '18px' }}>
+      Grande
+    </button>
+  </div>
+</Frame>
+
+## Inputs
+
+Os inputs permitem a entrada de dados pelo usuário.
+
+<Frame>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div>
+      <label style={{ display: 'block', marginBottom: '8px', fontFamily: 'Hanken Grotesk, sans-serif', fontSize: '14px', fontWeight: '500', color: '#202020' }}>
+        Input de Texto
+      </label>
+      <input 
+        type="text" 
+        placeholder="Digite aqui" 
+        style={{ 
+          width: '100%', 
+          padding: '12px 16px', 
+          borderRadius: '8px', 
+          border: '2px solid #E5E5E5', 
+          fontFamily: 'Hanken Grotesk, sans-serif', 
+          fontSize: '16px',
+          outline: 'none'
+        }} 
+      />
+    </div>
+    <div>
+      <label style={{ display: 'block', marginBottom: '8px', fontFamily: 'Hanken Grotesk, sans-serif', fontSize: '14px', fontWeight: '500', color: '#202020' }}>
+        Input com Ícone
+      </label>
+      <div style={{ position: 'relative' }}>
+        <input 
+          type="text" 
+          placeholder="Pesquisar" 
+          style={{ 
+            width: '100%', 
+            padding: '12px 16px 12px 48px', 
+            borderRadius: '8px', 
+            border: '2px solid #E5E5E5', 
+            fontFamily: 'Hanken Grotesk, sans-serif', 
+            fontSize: '16px',
+            outline: 'none'
+          }} 
+        />
+        <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="#A6A6A6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</Frame>
+
+## Cards
+
+Os cards são utilizados para agrupar informações relacionadas.
+
+### Card de Exercício
+
+<Frame>
+  <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', overflow: 'hidden', maxWidth: '320px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
+    <div style={{ height: '160px', backgroundColor: '#E5E5E5', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: '12px', right: '12px', backgroundColor: '#B4ED00', color: '#202020', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '500', fontFamily: 'Hanken Grotesk, sans-serif' }}>
+        Peito
+      </div>
+    </div>
+    <div style={{ padding: '16px' }}>
+      <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 'bold', fontFamily: 'Hanken Grotesk, sans-serif' }}>Supino Reto</h3>
+      <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#666', fontFamily: 'Hanken Grotesk, sans-serif' }}>
+        Exercício para desenvolvimento do peitoral com foco na parte central.
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div>
+          <span style={{ fontSize: '12px', color: '#A6A6A6', fontFamily: 'Hanken Grotesk, sans-serif' }}>Séries</span>
+          <p style={{ margin: '4px 0 0 0', fontSize: '16px', fontWeight: '500', fontFamily: 'Hanken Grotesk, sans-serif' }}>4</p>
+        </div>
+        <div>
+          <span style={{ fontSize: '12px', color: '#A6A6A6', fontFamily: 'Hanken Grotesk, sans-serif' }}>Repetições</span>
+          <p style={{ margin: '4px 0 0 0', fontSize: '16px', fontWeight: '500', fontFamily: 'Hanken Grotesk, sans-serif' }}>12</p>
+        </div>
+        <div>
+          <span style={{ fontSize: '12px', color: '#A6A6A6', fontFamily: 'Hanken Grotesk, sans-serif' }}>Descanso</span>
+          <p style={{ margin: '4px 0 0 0', fontSize: '16px', fontWeight: '500', fontFamily: 'Hanken Grotesk, sans-serif' }}>60s</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</Frame>
+
+### Card de Treino
+
+<Frame>
+  <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '20px', maxWidth: '320px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <h3 style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', fontFamily: 'Hanken Grotesk, sans-serif' }}>Treino A: Peito e Tríceps</h3>
+      <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#B4ED00', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 12H19" stroke="#202020" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M12 5L19 12L12 19" stroke="#202020" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    </div>
+    <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+      <div style={{ backgroundColor: '#F9F9F9', borderRadius: '8px', padding: '8px 12px', fontSize: '14px', fontFamily: 'Hanken Grotesk, sans-serif' }}>
+        6 exercícios
+      </div>
+      <div style={{ backgroundColor: '#F9F9F9', borderRadius: '8px', padding: '8px 12px', fontSize: '14px', fontFamily: 'Hanken Grotesk, sans-serif' }}>
+        45 min
+      </div>
+    </div>
+  </div>
+</Frame>
+
+## Navegação
+
+### Barra de Navegação Inferior
+
+<Frame>
+  <div style={{ backgroundColor: '#202020', padding: '16px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', maxWidth: '400px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+      <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="#B4ED00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <span style={{ fontSize: '12px', color: '#B4ED00', fontFamily: 'Hanken Grotesk, sans-serif' }}>Início</span>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+      <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 11H5C3.89543 11 3 11.8954 3 13V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V13C21 11.8954 20.1046 11 19 11Z" stroke="#F9F9F9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M7 11V7C7 5.93913 7.42143 4.92172 8.17157 4.17157C8.92172 3.42143 9.93913 3 11 3H13C14.0609 3 15.0783 3.42143 15.8284 4.17157C16.5786 4.92172 17 5.93913 17 7V11" stroke="#F9F9F9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <span style={{ fontSize: '12px', color: '#F9F9F9', fontFamily: 'Hanken Grotesk, sans-serif' }}>Treinos</span>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+      <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 15C15.866 15 19 11.866 19 8C19 4.13401 15.866 1 12 1C8.13401 1 5 4.13401 5 8C5 11.866 8.13401 15 12 15Z" stroke="#F9F9F9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M8.21 13.89L7 23L12 20L17 23L15.79 13.88" stroke="#F9F9F9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <span style={{ fontSize: '12px', color: '#F9F9F9', fontFamily: 'Hanken Grotesk, sans-serif' }}>Recordes</span>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+      <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="#F9F9F9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" stroke="#F9F9F9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <span style={{ fontSize: '12px', color: '#F9F9F9', fontFamily: 'Hanken Grotesk, sans-serif' }}>Perfil</span>
+    </div>
+  </div>
+</Frame>
+
+## Implementação
+
+Os componentes são implementados de forma consistente em todas as plataformas:
+
+### Web (Next.js)
+
+```tsx
+// Exemplo de implementação de botão no Next.js
+import React from 'react';
+import { cn } from '@/lib/utils';
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline';
+  size?: 'sm' | 'md' | 'lg';
+}
+
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = 'primary', size = 'md', ...props }, ref) => {
+    return (
+      <button
+        className={cn(
+          'inline-flex items-center justify-center rounded-md font-medium transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          {
+            'bg-primary text-dark': variant === 'primary',
+            'bg-dark text-light': variant === 'secondary',
+            'border-2 border-primary bg-transparent text-dark': variant === 'outline',
+          },
+          {
+            'px-4 py-2 text-sm rounded-md': size === 'sm',
+            'px-6 py-3 text-base rounded-lg': size === 'md',
+            'px-8 py-4 text-lg rounded-xl': size === 'lg',
+          },
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+```
+
+### Mobile (React Native)
+
+```tsx
+// Exemplo de implementação de botão no React Native
+import React from 'react';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+
+interface ButtonProps {
+  title: string;
+  variant?: 'primary' | 'secondary' | 'outline';
+  size?: 'sm' | 'md' | 'lg';
+  onPress?: () => void;
+}
+
+export const Button: React.FC<ButtonProps> = ({
+  title,
+  variant = 'primary',
+  size = 'md',
+  onPress,
+}) => {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.button,
+        styles[variant],
+        styles[size],
+      ]}
+      onPress={onPress}
+    >
+      <Text style={[styles.text, styles[`${variant}Text`]]}>
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+const styles = StyleSheet.create({
+  button: {
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primary: {
+    backgroundColor: '#B4ED00',
+  },
+  secondary: {
+    backgroundColor: '#202020',
+  },
+  outline: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#B4ED00',
+  },
+  sm: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  md: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  lg: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+  },
+  text: {
+    fontFamily: 'HankenGrotesk-Medium',
+    fontSize: 16,
+  },
+  primaryText: {
+    color: '#202020',
+  },
+  secondaryText: {
+    color: '#F9F9F9',
+  },
+  outlineText: {
+    color: '#202020',
+  },
+});
+```
+
+Para mais detalhes sobre a implementação de componentes específicos, consulte a documentação técnica do [aplicativo móvel](/architecture/frontend) e da [landing page](/architecture/landing).

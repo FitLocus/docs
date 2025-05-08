@@ -1,0 +1,244 @@
+---
+title: 'Modelo de Assinatura'
+description: 'Estrutura de planos e assinaturas do FitLocus'
+---
+
+# Modelo de Assinatura
+
+O FitLocus implementa um modelo de negócio baseado em assinaturas, com diferentes planos para alunos e personal trainers. Este modelo foi projetado para oferecer flexibilidade e escalabilidade, atendendo às necessidades de diferentes perfis de usuários.
+
+## Visão Geral
+
+O sistema de assinaturas do FitLocus é dividido em duas categorias principais:
+
+<CardGroup cols={2}>
+  <Card title="Planos para Alunos" icon="user">
+    Focados em acesso a funcionalidades premium para usuários que buscam treinar com acompanhamento personalizado.
+  </Card>
+  <Card title="Planos para Personal Trainers" icon="dumbbell">
+    Baseados na quantidade de alunos que o profissional pode gerenciar simultaneamente na plataforma.
+  </Card>
+</CardGroup>
+
+## Planos para Alunos
+
+Os alunos podem escolher entre diferentes níveis de acesso à plataforma:
+
+### Freemium
+
+Acesso básico à plataforma com funcionalidades limitadas.
+
+- **Preço**: Grátis
+- **Inclui**:
+  - Acesso a treinos básicos pré-definidos
+  - Registro de até 5 treinos por mês
+  - Acompanhamento de métricas básicas
+  - Acesso à comunidade
+
+### Trial (Período de Teste)
+
+Acesso completo à plataforma por um período limitado.
+
+- **Preço**: Grátis por 14 dias
+- **Inclui**:
+  - Todas as funcionalidades premium
+  - Treinos personalizados ilimitados
+  - Acompanhamento detalhado de progresso
+  - Acesso a todos os exercícios da biblioteca
+  - Suporte prioritário
+
+### Premium Mensal
+
+Acesso completo à plataforma com cobrança mensal.
+
+- **Preço**: R$ 29,90/mês
+- **Inclui**:
+  - Treinos personalizados ilimitados
+  - Acompanhamento detalhado de progresso
+  - Acesso a todos os exercícios da biblioteca
+  - Métricas avançadas de saúde
+  - Suporte prioritário
+
+### Premium Semestral
+
+Acesso completo à plataforma com cobrança semestral.
+
+- **Preço**: R$ 149,90/semestre (economia de 16% em relação ao plano mensal)
+- **Inclui**:
+  - Todos os benefícios do plano mensal
+  - Acesso a conteúdos exclusivos
+  - Relatórios de progresso avançados
+  - Suporte VIP
+
+### Premium Anual
+
+Acesso completo à plataforma com cobrança anual.
+
+- **Preço**: R$ 269,90/ano (economia de 25% em relação ao plano mensal)
+- **Inclui**:
+  - Todos os benefícios do plano semestral
+  - Acesso antecipado a novos recursos
+  - Consultas personalizadas com especialistas
+  - Descontos em produtos parceiros
+
+## Planos para Personal Trainers
+
+Os personal trainers podem escolher entre diferentes planos baseados na quantidade de alunos que desejam gerenciar:
+
+### Personal Iniciante
+
+Ideal para profissionais iniciando na plataforma.
+
+- **Preço**: R$ 49,90/mês
+- **Limite de Alunos**: Até 10 alunos
+- **Inclui**:
+  - Gerenciamento de até 10 alunos
+  - Criação de treinos personalizados
+  - Biblioteca básica de exercícios
+  - Relatórios de progresso dos alunos
+  - Suporte por email
+
+### Personal Basic
+
+Para profissionais com uma base de clientes estabelecida.
+
+- **Preço**: R$ 99,90/mês
+- **Limite de Alunos**: Até 50 alunos
+- **Inclui**:
+  - Gerenciamento de até 50 alunos
+  - Todos os recursos do plano Iniciante
+  - Biblioteca completa de exercícios
+  - Análises avançadas de desempenho
+  - Suporte prioritário
+
+### Personal Intermediário
+
+Para profissionais com uma grande base de clientes.
+
+- **Preço**: R$ 179,90/mês
+- **Limite de Alunos**: Até 100 alunos
+- **Inclui**:
+  - Gerenciamento de até 100 alunos
+  - Todos os recursos do plano Basic
+  - Ferramentas de automação de treinos
+  - Relatórios personalizados
+  - Suporte VIP
+
+### Personal Avançado
+
+Para profissionais com uma base de clientes muito grande.
+
+- **Preço**: R$ 299,90/mês
+- **Limite de Alunos**: Até 200 alunos
+- **Inclui**:
+  - Gerenciamento de até 200 alunos
+  - Todos os recursos do plano Intermediário
+  - Ferramentas de marketing integradas
+  - Análise de dados avançada
+  - Suporte dedicado
+
+### Personal Ilimitado
+
+Para academias e grandes equipes de personal trainers.
+
+- **Preço**: R$ 499,90/mês
+- **Limite de Alunos**: Ilimitado (201+)
+- **Inclui**:
+  - Gerenciamento de alunos ilimitados
+  - Todos os recursos do plano Avançado
+  - API para integrações personalizadas
+  - Painel administrativo para equipes
+  - Gerente de conta dedicado
+
+## Comparação de Planos
+
+### Planos para Alunos
+
+| Recurso | Freemium | Trial | Premium Mensal | Premium Semestral | Premium Anual |
+|---------|----------|-------|----------------|-------------------|---------------|
+| Preço | Grátis | Grátis (14 dias) | R$ 29,90/mês | R$ 149,90/semestre | R$ 269,90/ano |
+| Treinos personalizados | Limitado (5/mês) | ✅ | ✅ | ✅ | ✅ |
+| Biblioteca de exercícios | Básica | Completa | Completa | Completa | Completa |
+| Acompanhamento de progresso | Básico | Detalhado | Detalhado | Avançado | Avançado |
+| Métricas de saúde | Básicas | Avançadas | Avançadas | Avançadas | Avançadas |
+| Suporte | Email | Prioritário | Prioritário | VIP | VIP |
+| Conteúdo exclusivo | ❌ | ✅ | ❌ | ✅ | ✅ |
+| Acesso antecipado a novos recursos | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Planos para Personal Trainers
+
+| Recurso | Iniciante | Basic | Intermediário | Avançado | Ilimitado |
+|---------|-----------|-------|---------------|----------|-----------|
+| Preço | R$ 49,90/mês | R$ 99,90/mês | R$ 179,90/mês | R$ 299,90/mês | R$ 499,90/mês |
+| Limite de alunos | 10 | 50 | 100 | 200 | Ilimitado |
+| Biblioteca de exercícios | Básica | Completa | Completa | Completa | Completa |
+| Análises de desempenho | Básicas | Avançadas | Avançadas | Avançadas | Avançadas |
+| Automação de treinos | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Ferramentas de marketing | ❌ | ❌ | ❌ | ✅ | ✅ |
+| API para integrações | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Suporte | Email | Prioritário | VIP | Dedicado | Gerente de conta |
+
+## Implementação Técnica
+
+No backend, os tipos de assinatura são implementados através do enum `SubscriptionType`:
+
+```java
+public enum SubscriptionType {
+    FREEMIUM,
+    TRIAL,
+    PREMIUM_MENSAL,
+    PREMIUM_SEMESTRAL,
+    PREMIUM_ANUAL,
+    PERSONAL_INICIANTE,      // até 10
+    PERSONAL_BASIC,          // até 50
+    PERSONAL_INTERMEDIARIO,  // até 100
+    PERSONAL_AVANCADO,       // até 200
+    PERSONAL_ILIMITADO       // 201+
+}
+```
+
+## Ciclo de Vida da Assinatura
+
+1. **Criação**: Quando um usuário se registra, recebe automaticamente o tipo `FREEMIUM`
+2. **Atualização**: Ao assinar um plano, o tipo é atualizado para o correspondente
+3. **Trial**: Usuários podem ativar um período de teste de 14 dias (tipo `TRIAL`)
+4. **Renovação**: Assinaturas são renovadas automaticamente ao final do período
+5. **Cancelamento**: Usuários podem cancelar a qualquer momento, retornando ao tipo `FREEMIUM`
+
+## Validação de Acesso
+
+O sistema implementa validadores que verificam o tipo de assinatura do usuário antes de permitir acesso a recursos premium:
+
+```java
+// Exemplo simplificado de validação
+public boolean canAccessPremiumFeature(User user) {
+    return user.getSubscriptionType() != SubscriptionType.FREEMIUM;
+}
+
+// Exemplo de validação para personal trainers
+public boolean canManageStudents(User personal, int studentCount) {
+    switch (personal.getSubscriptionType()) {
+        case PERSONAL_INICIANTE:
+            return studentCount <= 10;
+        case PERSONAL_BASIC:
+            return studentCount <= 50;
+        case PERSONAL_INTERMEDIARIO:
+            return studentCount <= 100;
+        case PERSONAL_AVANCADO:
+            return studentCount <= 200;
+        case PERSONAL_ILIMITADO:
+            return true;
+        default:
+            return false;
+    }
+}
+```
+
+## Integração com Pagamentos
+
+O sistema de assinaturas integra-se com o AbacatePay para processamento de pagamentos:
+
+1. **Criação de Assinatura**: Ao escolher um plano, o usuário é redirecionado para o checkout
+2. **Webhook de Pagamento**: Após pagamento confirmado, o webhook atualiza o tipo de assinatura
+3. **Renovação Automática**: Sistema gera cobranças automáticas no período correspondente
+4. **Falha de Pagamento**: Em caso de falha, o sistema tenta novamente por até 3 vezes antes de rebaixar para `FREEMIUM`

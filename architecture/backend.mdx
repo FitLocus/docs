@@ -1,0 +1,127 @@
+---
+title: 'Backend'
+description: 'Arquitetura e implementação do backend do FitLocus'
+---
+
+# Backend do FitLocus
+
+O backend do FitLocus é uma API RESTful desenvolvida em Java com Spring Boot, responsável por toda a lógica de negócio, autenticação e persistência de dados da plataforma.
+
+## Tecnologias Utilizadas
+
+- **Linguagem**: Java 17
+- **Framework**: Spring Boot 3.x
+- **Banco de Dados**: PostgreSQL
+- **ORM**: Spring Data JPA / Hibernate
+- **Autenticação**: JWT + Firebase Auth
+- **Documentação**: Swagger / OpenAPI
+- **Build**: Gradle
+- **Containerização**: Docker
+- **CI/CD**: GitHub Actions
+
+## Estrutura do Projeto
+
+```
+src/main/
+├── java/com/fitlocus/backend/
+│   ├── config/                 # Configurações (Security, CORS, Firebase)
+│   ├── controllers/            # Endpoints da API REST
+│   ├── dtos/                   # Data Transfer Objects
+│   ├── enums/                  # Enumerações (UserType, SubscriptionType, etc.)
+│   ├── exceptions/             # Exceções personalizadas
+│   ├── mappers/                # Conversores entre entidades e DTOs
+│   ├── models/                 # Entidades JPA
+│   ├── repositories/           # Repositórios Spring Data JPA
+│   ├── services/               # Lógica de negócio
+│   ├── utils/                  # Classes utilitárias
+│   └── validators/             # Lógica de validação
+├── resources/
+│   ├── application.properties  # Configurações da aplicação
+│   ├── application-*.properties # Configurações específicas por ambiente
+│   ├── db/
+│   │   ├── changelog.xml      # Arquivo mestre de migração Liquibase
+│   │   └── scripts/           # Scripts SQL para migrações
+│   └── key/                    # Chaves de serviço Firebase
+```
+
+## Principais Controladores
+
+O backend expõe diversos endpoints através de controladores REST:
+
+| Controlador | Descrição |
+|-------------|-----------|
+| `AuthController` | Autenticação e registro de usuários |
+| `UserController` | Gerenciamento de perfis de usuário |
+| `ExerciseController` | Gerenciamento de exercícios |
+| `TrainingController` | Gerenciamento de treinos |
+| `TrainingPlanController` | Gerenciamento de planos de treino |
+| `PersonalStudentController` | Relacionamento entre personal e aluno |
+| `FileController` | Upload e gerenciamento de arquivos |
+| `PersonalRecordController` | Gerenciamento de recordes pessoais |
+| `UserMetricsController` | Métricas de usuário (hidratação, passos, sono) |
+
+## Modelos de Dados
+
+Os principais modelos de dados incluem:
+
+- **Users**: Usuários do sistema (ALUNO ou PERSONAL)
+- **Exercise**: Exercícios físicos com descrição e imagem
+- **Training**: Treinos compostos por exercícios
+- **TrainingPlan**: Planos de treino semanais
+- **PersonalStudent**: Relacionamento entre personal e aluno
+- **ExerciseExecution**: Registro de execução de exercícios
+- **TrainingExecution**: Registro de execução de treinos
+- **PersonalRecord**: Recordes pessoais em exercícios
+
+## Autenticação e Segurança
+
+O sistema utiliza uma combinação de JWT (JSON Web Tokens) e Firebase Authentication:
+
+1. **Login tradicional**: Email/senha validados contra o banco de dados
+2. **Login social**: Integração com Firebase Auth para login via Google
+3. **Autorização**: Tokens JWT com claims para controle de acesso
+4. **Segurança**: Filtros de segurança para validação de tokens em cada requisição
+
+## Armazenamento de Arquivos
+
+O sistema suporta dois modos de armazenamento de arquivos:
+
+1. **Desenvolvimento**: Armazenamento local no sistema de arquivos
+2. **Produção**: Google Cloud Storage para armazenamento em nuvem
+
+## Validação de Assinaturas
+
+O backend implementa validadores para controlar o acesso a recursos com base no tipo de assinatura:
+
+- **SubscriptionValidator**: Valida se o usuário pode acessar recursos premium
+- **AccessValidator**: Controla o acesso baseado no tipo de usuário e assinatura
+
+## Integração com Pagamentos
+
+O sistema integra-se com o AbacatePay para processamento de pagamentos:
+
+1. **Webhooks**: Endpoints para receber notificações de pagamentos
+2. **PIX**: Suporte a pagamentos via PIX
+3. **Assinaturas**: Gerenciamento de ciclos de assinatura
+
+## Ambiente de Desenvolvimento
+
+Para configurar o ambiente de desenvolvimento:
+
+```bash
+# Clone o repositório
+git clone https://github.com/logoscti/fitlocus-backend.git
+
+# Entre no diretório
+cd fitlocus-backend
+
+# Execute com Gradle
+./gradlew bootRun
+
+# Ou com Docker Compose
+docker-compose up
+```
+
+## Endpoints da API
+
+Para uma documentação detalhada dos endpoints da API, consulte a [Referência da API](/api-reference/introduction).

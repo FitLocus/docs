@@ -18,6 +18,25 @@ description: "Bem-vindo à documentação oficial do FitLocus"
 
 O **FitLocus** é a nova forma de pensar corpo, saúde e rotina. Criado para quem treina sozinho ou com o acompanhamento de um personal, ele reúne planos de treino, IA, histórico de progresso, agendamentos, notificações e cobrança automática – tudo em um só lugar.
 
+## Visão Geral
+
+O FitLocus é uma plataforma completa que conecta profissionais de educação física (Personal Trainers) e alunos, oferecendo funcionalidades específicas para cada tipo de usuário:
+
+### Para Personal Trainers
+- Gerenciamento de alunos
+- Criação de exercícios personalizados
+- Montagem de treinos e planos de treino
+- Acompanhamento de progresso dos alunos
+- Relatórios e análises de desempenho
+- Planos de assinatura baseados na quantidade de alunos
+
+### Para Alunos
+- Acesso a treinos personalizados
+- Execução e registro de treinos
+- Acompanhamento de progresso
+- Métricas de saúde (hidratação, passos, sono)
+- Recordes pessoais em exercícios
+
 ## Comece agora
 
 Configure o projeto localmente e entenda sua arquitetura técnica.
@@ -54,25 +73,33 @@ Explore os recursos disponíveis no FitLocus e como utilizá-los.
   <Card
     title="Integração com Pagamentos"
     icon="credit-card"
-    href="/essentials/integrations"
+    href="/api-reference/payments/overview"
   >
     Webhooks e cobranças via PIX com o AbacatePay.
   </Card>
   <Card
     title="Planos e Assinaturas"
     icon="dumbbell"
-    href="/essentials/plans"
+    href="/business/subscription-model"
   >
     Lógica de planos freemium, premium mensal, semestral e anual.
   </Card>
   <Card
     title="Infraestrutura do Projeto"
     icon="server"
-    href="/essentials/architecture"
+    href="/architecture/overview"
   >
     Arquitetura com GCP, Cloud Run, banco PostgreSQL e CI/CD automatizado.
   </Card>
 </CardGroup>
+
+## Arquitetura do Projeto
+
+O FitLocus é composto por três projetos principais:
+
+1. **Backend (Java/Spring Boot)**: API RESTful que gerencia toda a lógica de negócio, autenticação, e persistência de dados.
+2. **App Frontend (React Native/Capacitor)**: Aplicativo móvel para iOS e Android que oferece a experiência principal para usuários.
+3. **Landing Page (Next.js)**: Site institucional e portal de entrada para novos usuários, com fluxos de cadastro e assinatura.
 
 ## Identidade e Design
 
@@ -82,15 +109,15 @@ A estética do FitLocus é minimalista, moderna e funcional.
   <Card
     title="Identidade Visual"
     icon="palette"
-    href="/essentials/design"
+    href="/design/brand-guidelines"
   >
     Saiba mais sobre as fontes, cores e propósito visual do projeto.
   </Card>
   <Card
-    title="Componentes Visuais"
+    title="Componentes UI"
     icon="screwdriver-wrench"
-    href="https://mintlify.com/docs/content/components/accordions"
+    href="/design/components"
   >
-    Utilize componentes interativos na documentação.
+    Biblioteca de componentes visuais utilizados no projeto.
   </Card>
 </CardGroup>

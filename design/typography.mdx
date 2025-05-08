@@ -1,0 +1,268 @@
+---
+title: 'Tipografia'
+description: 'Sistema tipográfico do FitLocus'
+---
+
+# Tipografia
+
+O sistema tipográfico do FitLocus foi cuidadosamente selecionado para transmitir uma identidade moderna, premium e de fácil leitura em todas as plataformas.
+
+## Fontes Principais
+
+O FitLocus utiliza duas fontes principais que se complementam para criar uma identidade visual coesa:
+
+<CardGroup cols={2}>
+  <Card title="Hanken Grotesk" icon="font">
+    Fonte principal para textos, parágrafos e elementos de interface.
+  </Card>
+  <Card title="SUPERINE" icon="font">
+    Fonte secundária para títulos de destaque e elementos especiais.
+  </Card>
+</CardGroup>
+
+## Hanken Grotesk
+
+Hanken Grotesk é uma fonte sans-serif moderna e versátil, utilizada como a fonte principal do FitLocus. Ela oferece excelente legibilidade em diferentes tamanhos e pesos, tornando-a ideal para uso em interfaces digitais.
+
+<Frame>
+  <div style={{ fontFamily: 'Hanken Grotesk, sans-serif' }}>
+    <h1 style={{ fontSize: '36px', margin: '0 0 16px 0', fontWeight: '700' }}>Hanken Grotesk Bold</h1>
+    <h2 style={{ fontSize: '30px', margin: '0 0 16px 0', fontWeight: '600' }}>Hanken Grotesk SemiBold</h2>
+    <h3 style={{ fontSize: '24px', margin: '0 0 16px 0', fontWeight: '500' }}>Hanken Grotesk Medium</h3>
+    <p style={{ fontSize: '18px', margin: '0 0 16px 0', fontWeight: '400' }}>Hanken Grotesk Regular para textos e parágrafos.</p>
+    <p style={{ fontSize: '16px', margin: '0 0 16px 0', fontWeight: '300' }}>Hanken Grotesk Light para textos secundários.</p>
+  </div>
+</Frame>
+
+### Características
+
+- **Geométrica**: Formas baseadas em princípios geométricos
+- **Alta legibilidade**: Excelente para textos em telas
+- **Versátil**: Funciona bem em diferentes tamanhos e pesos
+- **Moderna**: Aparência contemporânea e limpa
+
+### Pesos Utilizados
+
+- **Bold (700)**: Títulos principais e elementos de destaque
+- **SemiBold (600)**: Subtítulos e elementos importantes
+- **Medium (500)**: Botões, rótulos e elementos interativos
+- **Regular (400)**: Corpo de texto principal
+- **Light (300)**: Textos secundários e informações adicionais
+
+## SUPERINE
+
+SUPERINE é uma fonte display moderna com características geométricas e detalhes únicos, utilizada para títulos de destaque e elementos especiais que precisam de maior impacto visual.
+
+<Frame>
+  <div style={{ fontFamily: 'SUPERINE, sans-serif' }}>
+    <h1 style={{ fontSize: '42px', margin: '0 0 16px 0', fontWeight: '700' }}>SUPERINE BOLD</h1>
+    <h2 style={{ fontSize: '36px', margin: '0 0 16px 0', fontWeight: '400' }}>SUPERINE REGULAR</h2>
+  </div>
+</Frame>
+
+### Características
+
+- **Distintiva**: Formas únicas que criam identidade visual forte
+- **Geométrica**: Baseada em formas geométricas com detalhes modernos
+- **Impactante**: Ideal para títulos e elementos de destaque
+- **Premium**: Transmite uma sensação de qualidade e sofisticação
+
+### Pesos Utilizados
+
+- **Bold**: Títulos principais e elementos de grande destaque
+- **Regular**: Subtítulos e elementos secundários de destaque
+
+## Hierarquia Tipográfica
+
+A hierarquia tipográfica do FitLocus é estruturada para garantir clareza e consistência em todas as interfaces:
+
+| Elemento | Fonte | Peso | Tamanho (Web) | Tamanho (Mobile) |
+|----------|-------|------|---------------|------------------|
+| H1 | SUPERINE | Bold | 36px/2.25rem | 32px/2rem |
+| H2 | Hanken Grotesk | Bold | 30px/1.875rem | 28px/1.75rem |
+| H3 | Hanken Grotesk | Bold | 24px/1.5rem | 22px/1.375rem |
+| H4 | Hanken Grotesk | Medium | 20px/1.25rem | 18px/1.125rem |
+| H5 | Hanken Grotesk | Medium | 18px/1.125rem | 16px/1rem |
+| H6 | Hanken Grotesk | Medium | 16px/1rem | 14px/0.875rem |
+| Parágrafo | Hanken Grotesk | Regular | 16px/1rem | 16px/1rem |
+| Texto pequeno | Hanken Grotesk | Regular | 14px/0.875rem | 12px/0.75rem |
+| Botões | Hanken Grotesk | Medium | 16px/1rem | 16px/1rem |
+| Rótulos | Hanken Grotesk | Medium | 14px/0.875rem | 12px/0.75rem |
+| Legendas | Hanken Grotesk | Light | 12px/0.75rem | 10px/0.625rem |
+
+## Espaçamento e Altura de Linha
+
+O espaçamento e a altura de linha são fundamentais para garantir a legibilidade e o ritmo visual:
+
+| Elemento | Altura de Linha | Espaçamento de Parágrafo |
+|----------|-----------------|--------------------------|
+| Títulos (H1-H3) | 1.2 | 0.75em |
+| Subtítulos (H4-H6) | 1.3 | 0.5em |
+| Parágrafos | 1.5 | 1em |
+| Texto pequeno | 1.4 | 0.75em |
+
+## Implementação
+
+### Web (CSS)
+
+```css
+/* Importação das fontes */
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.yourfoundry.com/superine.css');
+
+/* Variáveis CSS */
+:root {
+  --font-primary: 'Hanken Grotesk', sans-serif;
+  --font-secondary: 'SUPERINE', sans-serif;
+  
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+}
+
+/* Estilos de tipografia */
+h1 {
+  font-family: var(--font-secondary);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-4xl);
+  line-height: 1.2;
+  margin-bottom: 0.75em;
+}
+
+h2 {
+  font-family: var(--font-primary);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-3xl);
+  line-height: 1.2;
+  margin-bottom: 0.75em;
+}
+
+/* ... outros estilos ... */
+
+p {
+  font-family: var(--font-primary);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  margin-bottom: 1em;
+}
+
+.small-text {
+  font-family: var(--font-primary);
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.button {
+  font-family: var(--font-primary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+}
+```
+
+### Mobile (React Native)
+
+```tsx
+// typography.ts
+export const typography = {
+  fonts: {
+    primary: 'HankenGrotesk',
+    secondary: 'SUPERINE',
+  },
+  weights: {
+    light: '300',
+    regular: '400',
+    medium: '500',
+    semiBold: '600',
+    bold: '700',
+  },
+  sizes: {
+    xs: 10,
+    sm: 12,
+    base: 16,
+    lg: 18,
+    xl: 20,
+    '2xl': 22,
+    '3xl': 28,
+    '4xl': 32,
+  },
+  lineHeights: {
+    tight: 1.2,
+    snug: 1.3,
+    normal: 1.5,
+    relaxed: 1.4,
+  },
+};
+
+// TextStyles.tsx
+import { StyleSheet } from 'react-native';
+import { typography } from './typography';
+
+export const textStyles = StyleSheet.create({
+  h1: {
+    fontFamily: `${typography.fonts.secondary}-Bold`,
+    fontSize: typography.sizes['4xl'],
+    lineHeight: typography.sizes['4xl'] * typography.lineHeights.tight,
+    marginBottom: 16,
+  },
+  h2: {
+    fontFamily: `${typography.fonts.primary}-Bold`,
+    fontSize: typography.sizes['3xl'],
+    lineHeight: typography.sizes['3xl'] * typography.lineHeights.tight,
+    marginBottom: 16,
+  },
+  // ... outros estilos ...
+  body: {
+    fontFamily: `${typography.fonts.primary}-Regular`,
+    fontSize: typography.sizes.base,
+    lineHeight: typography.sizes.base * typography.lineHeights.normal,
+    marginBottom: 16,
+  },
+  small: {
+    fontFamily: `${typography.fonts.primary}-Regular`,
+    fontSize: typography.sizes.sm,
+    lineHeight: typography.sizes.sm * typography.lineHeights.relaxed,
+  },
+  button: {
+    fontFamily: `${typography.fonts.primary}-Medium`,
+    fontSize: typography.sizes.base,
+  },
+});
+```
+
+## Boas Práticas
+
+### Uso Correto
+
+- Use SUPERINE apenas para títulos principais e elementos de destaque
+- Mantenha a consistência na hierarquia tipográfica em todas as interfaces
+- Respeite os pesos de fonte designados para cada elemento
+- Mantenha o contraste adequado entre texto e fundo para garantir acessibilidade
+
+### Uso Incorreto
+
+- Evite usar SUPERINE para textos longos ou parágrafos
+- Não misture mais de 2-3 pesos diferentes da mesma fonte em uma única tela
+- Evite tamanhos de fonte muito pequenos (menores que 12px/10pt)
+- Não use estilos de texto que comprometam a legibilidade (como itálico excessivo)
+
+## Acessibilidade
+
+Para garantir que a tipografia seja acessível a todos os usuários:
+
+- Mantenha um contraste mínimo de 4.5:1 para texto normal e 3:1 para texto grande
+- Permita que o texto seja redimensionado até 200% sem perda de conteúdo
+- Evite usar apenas cor para transmitir informações
+- Considere usuários com dislexia ao definir espaçamento entre linhas e parágrafos
