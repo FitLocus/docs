@@ -1,0 +1,469 @@
+---
+title: 'Integração de Treinos'
+description: 'Exemplos de código para integração com o sistema de treinos do FitLocus'
+---
+
+# Integração de Treinos
+
+Este guia fornece exemplos práticos para integrar sua aplicação com o sistema de treinos do FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A integração com o sistema de treinos do FitLocus inclui:
+    </p>
+    <ul>
+      <li>Criação e gerenciamento de treinos</li>
+      <li>Atribuição de treinos a alunos</li>
+      <li>Execução e acompanhamento de treinos</li>
+      <li>Planos de treino e progressão</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos Técnicos
+
+Para integrar com o sistema de treinos do FitLocus, você precisará:
+
+- **Backend**: Java 21, Spring Boot, Spring Data JPA
+- **Frontend**: Axios/fetch, biblioteca de gerenciamento de estado
+
+## Exemplos de Integração
+
+### Backend (Java 21 + Spring Boot)
+
+#### Modelo de Treino
+
+```java
+@Entity
+@Table(name = "trainings")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Training {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "personal_id")
+    private Long personalId;
+
+    @Column(name = "student_id")
+    private Long studentId;
+
+    @Column(name = "training_plan_id")
+    private Long trainingPlanId;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "training", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TrainingExercise> exercises = new ArrayList<>();
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}
+```
+
+#### Serviço de Treino
+
+```java
+@Service
+@Transactional
+public class TrainingService {
+    private final TrainingRepository trainingRepository;
+    private final TrainingExerciseRepository trainingExerciseRepository;
+    private final PersonalStudentRepository personalStudentRepository;
+
+    public TrainingService(TrainingRepository trainingRepository,
+                          TrainingExerciseRepository trainingExerciseRepository,
+                          PersonalStudentRepository personalStudentRepository) {
+        this.trainingRepository = trainingRepository;
+        this.trainingExerciseRepository = trainingExerciseRepository;
+        this.personalStudentRepository = personalStudentRepository;
+    }
+
+    public TrainingDTO getTrainingById(Long id, Long userId, EnumUserType userType) {
+        Training training = trainingRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Treino não encontrado"));
+        
+        // Verificar se o usuário tem acesso ao treino
+        if (userType == EnumUserType.PERSONAL) {
+            if (!training.getPersonalId().equals(userId)) {
+                throw new AccessDeniedException("Acesso negado ao treino");
+            }
+        } else if (userType == EnumUserType.ALUNO) {
+            if (!training.getStudentId().equals(userId)) {
+                throw new AccessDeniedException("Acesso negado ao treino");
+            }
+        }
+        
+        return TrainingDTO.fromEntity(training);
+    }
+
+    public List<TrainingDTO> getTrainingsByPersonalId(Long personalId) {
+        List<Training> trainings = trainingRepository.findByPersonalId(personalId);
+        return trainings.stream()
+                .map(TrainingDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<TrainingDTO> getTrainingsByStudentId(Long studentId) {
+        List<Training> trainings = trainingRepository.findByStudentId(studentId);
+        return trainings.stream()
+                .map(TrainingDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // Outros métodos omitidos para brevidade
+}
+```
+
+### Frontend (React + TypeScript)
+
+#### Serviço de Treino
+
+```typescript
+// src/services/training.service.ts
+import api from './api';
+
+export interface Training {
+  id: number;
+  name: string;
+  description?: string;
+  personalId: number;
+  studentId: number;
+  trainingPlanId?: number;
+  createdAt: string;
+  updatedAt: string;
+  exercises: TrainingExercise[];
+}
+
+export interface TrainingExercise {
+  id: number;
+  exerciseId: number;
+  exerciseName: string;
+  exerciseCategory: string;
+  exerciseImageUrl?: string;
+  sets: number;
+  reps: number;
+  weight?: number;
+  restTime?: number;
+  notes?: string;
+  order: number;
+}
+
+class TrainingService {
+  async getTrainingById(id: number): Promise<Training> {
+    const response = await api.get<Training>(`/trainings/${id}`);
+    return response.data;
+  }
+
+  async getMyTrainings(): Promise<Training[]> {
+    const response = await api.get<Training[]>('/trainings/my-trainings');
+    return response.data;
+  }
+
+  async getStudentTrainings(studentId: number): Promise<Training[]> {
+    const response = await api.get<Training[]>(`/trainings/student/${studentId}`);
+    return response.data;
+  }
+
+  // Outros métodos omitidos para brevidade
+}
+
+export default new TrainingService();
+```
+
+## Componente de Lista de Treinos
+
+```tsx
+// src/components/TrainingList.tsx
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useTrainings } from '../hooks/useTrainings';
+import { useAuth } from '../contexts/AuthContext';
+
+const TrainingList: React.FC = () => {
+  const { user } = useAuth();
+  const { trainings, loading, error } = useTrainings();
+
+  if (loading) {
+    return <div className="loading">Carregando treinos...</div>;
+  }
+
+  if (error) {
+    return <div className="error-message">{error}</div>;
+  }
+
+  return (
+    <div className="training-list">
+      <div className="training-list-header">
+        <h2>Meus Treinos</h2>
+        {user?.userType === 'PERSONAL' && (
+          <Link to="/trainings/new" className="button">Novo Treino</Link>
+        )}
+      </div>
+      
+      {trainings.length === 0 ? (
+        <div className="empty-state">
+          <p>Nenhum treino encontrado.</p>
+          {user?.userType === 'PERSONAL' && (
+            <Link to="/trainings/new" className="button">Criar Treino</Link>
+          )}
+        </div>
+      ) : (
+        <div className="training-grid">
+          {trainings.map(training => (
+            <div key={training.id} className="training-card">
+              <h3>{training.name}</h3>
+              <p>{training.description}</p>
+              <p>Exercícios: {training.exercises.length}</p>
+              <Link to={`/trainings/${training.id}`} className="button">
+                Ver Detalhes
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TrainingList;
+```
+
+## Execução de Treino
+
+```tsx
+// src/components/TrainingExecution.tsx
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import trainingService, { Training } from '../services/training.service';
+import trainingExecutionService from '../services/training-execution.service';
+
+const TrainingExecution: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [training, setTraining] = useState<Training | null>(null);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [executionStarted, setExecutionStarted] = useState(false);
+  const [executionId, setExecutionId] = useState<number | null>(null);
+  const [completedSets, setCompletedSets] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    const fetchTraining = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const data = await trainingService.getTrainingById(parseInt(id, 10));
+        setTraining(data);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Erro ao carregar treino');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTraining();
+  }, [id]);
+
+  const startExecution = async () => {
+    if (!training) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await trainingExecutionService.startExecution(training.id);
+      setExecutionId(response.id);
+      setExecutionStarted(true);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao iniciar execução');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completeSet = async (exerciseId: number) => {
+    if (!executionId) return;
+    
+    try {
+      await trainingExecutionService.completeSet(executionId, exerciseId);
+      
+      // Atualizar contagem de séries completadas
+      setCompletedSets(prev => ({
+        ...prev,
+        [exerciseId]: (prev[exerciseId] || 0) + 1
+      }));
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao completar série');
+    }
+  };
+
+  const finishExecution = async () => {
+    if (!executionId) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      await trainingExecutionService.finishExecution(executionId);
+      navigate(`/executions/${executionId}/summary`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao finalizar execução');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && !training) {
+    return <div className="loading">Carregando treino...</div>;
+  }
+
+  if (error || !training) {
+    return <div className="error-message">{error || 'Treino não encontrado'}</div>;
+  }
+
+  const currentExercise = training.exercises[currentExerciseIndex];
+
+  return (
+    <div className="training-execution">
+      <h1>{training.name}</h1>
+      
+      {!executionStarted ? (
+        <div className="execution-start">
+          <p>Pronto para começar seu treino?</p>
+          <button onClick={startExecution} disabled={loading}>
+            {loading ? 'Iniciando...' : 'Iniciar Treino'}
+          </button>
+        </div>
+      ) : (
+        <div className="execution-in-progress">
+          <div className="exercise-progress">
+            <span>
+              Exercício {currentExerciseIndex + 1} de {training.exercises.length}
+            </span>
+            <div className="progress-bar">
+              <div 
+                className="progress" 
+                style={{ width: `${((currentExerciseIndex + 1) / training.exercises.length) * 100}%` }}
+              />
+            </div>
+          </div>
+          
+          <div className="current-exercise">
+            <h2>{currentExercise.exerciseName}</h2>
+            <p>
+              {currentExercise.sets} séries x {currentExercise.reps} repetições
+              {currentExercise.weight && ` - ${currentExercise.weight}kg`}
+            </p>
+            
+            <div className="sets-progress">
+              {Array.from({ length: currentExercise.sets }).map((_, index) => (
+                <div 
+                  key={index} 
+                  className={`set ${index < (completedSets[currentExercise.id] || 0) ? 'completed' : ''}`}
+                >
+                  {index + 1}
+                </div>
+              ))}
+            </div>
+            
+            <button 
+              onClick={() => completeSet(currentExercise.id)}
+              disabled={(completedSets[currentExercise.id] || 0) >= currentExercise.sets}
+            >
+              Completar Série
+            </button>
+          </div>
+          
+          <div className="navigation-buttons">
+            <button 
+              onClick={() => setCurrentExerciseIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentExerciseIndex === 0}
+            >
+              Anterior
+            </button>
+            
+            <button 
+              onClick={() => setCurrentExerciseIndex(prev => Math.min(training.exercises.length - 1, prev + 1))}
+              disabled={currentExerciseIndex === training.exercises.length - 1}
+            >
+              Próximo
+            </button>
+          </div>
+          
+          <button 
+            onClick={finishExecution}
+            className="finish-button"
+          >
+            Finalizar Treino
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TrainingExecution;
+```
+
+## Melhores Práticas
+
+### Segurança
+
+1. **Controle de Acesso**:
+   - Verifique se o usuário tem permissão para acessar o treino
+   - Implemente filtros para personal trainers verem apenas seus alunos
+
+2. **Validação de Dados**:
+   - Valide todos os dados de entrada no backend e frontend
+   - Verifique relacionamentos entre personal e aluno antes de atribuir treinos
+
+### Performance
+
+1. **Otimização de Consultas**:
+   - Use joins e consultas otimizadas para carregar treinos com exercícios
+   - Implemente paginação para listas grandes de treinos
+
+2. **Caching**:
+   - Armazene treinos em cache para reduzir requisições
+   - Implemente invalidação de cache quando treinos são atualizados
+
+## Solução de Problemas
+
+### Erros Comuns
+
+| Erro | Causa Provável | Solução |
+|------|----------------|---------|
+| 404 Not Found | Treino não encontrado | Verificar ID do treino |
+| 403 Forbidden | Permissões insuficientes | Verificar relacionamento personal-aluno |
+| 400 Bad Request | Dados inválidos | Verificar validação de dados |
+
+## Recursos Adicionais
+
+- [Documentação da API de Treinos](/api-reference/trainings/overview)
+- [Tutorial de Criação de Plano de Treino](/tutorials/create-training-plan)

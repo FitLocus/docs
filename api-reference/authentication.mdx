@@ -1,0 +1,311 @@
+---
+title: 'Autenticação'
+description: 'Guia de autenticação para a API do FitLocus'
+---
+
+# Autenticação
+
+A API do FitLocus utiliza autenticação baseada em tokens JWT (JSON Web Tokens) para proteger seus endpoints. Este guia explica como autenticar suas requisições e gerenciar sessões de usuário.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      O FitLocus implementa um sistema de autenticação robusto que:
+    </p>
+    <ul>
+      <li>Utiliza tokens JWT para autenticação stateless</li>
+      <li>Suporta autenticação via email/senha</li>
+      <li>Integra-se com Firebase Authentication para login social</li>
+      <li>Implementa controle de acesso baseado em funções (RBAC)</li>
+      <li>Gerencia sessões com expiração e renovação de tokens</li>
+    </ul>
+  </div>
+</Frame>
+
+## Fluxo de Autenticação
+
+### 1. Registro de Usuário
+
+Para criar uma nova conta, utilize o endpoint de registro:
+
+```bash
+POST /users/register
+```
+
+Payload:
+
+```json
+{
+  "name": "Nome Completo",
+  "email": "usuario@exemplo.com",
+  "password": "senha123",
+  "userType": "ALUNO", // ou "PERSONAL"
+  "requestLocation": "APP", // ou "WEB"
+  "confirmed": true
+}
+```
+
+Resposta:
+
+```json
+{
+  "user": {
+    "id": 123,
+    "name": "Nome Completo",
+    "email": "usuario@exemplo.com",
+    "userType": "ALUNO"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 123,
+  "success": true
+}
+```
+
+### 2. Login com Email e Senha
+
+Para autenticar um usuário existente:
+
+```bash
+POST /users/login
+```
+
+Payload:
+
+```json
+{
+  "email": "usuario@exemplo.com",
+  "password": "senha123"
+}
+```
+
+Resposta:
+
+```json
+{
+  "user": {
+    "id": 123,
+    "name": "Nome Completo",
+    "email": "usuario@exemplo.com",
+    "userType": "ALUNO"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 123,
+  "success": true
+}
+```
+
+### 3. Login com Firebase
+
+Para autenticar usando o Firebase Authentication:
+
+```bash
+POST /users/firebase-login
+```
+
+Payload:
+
+```json
+{
+  "firebaseToken": "firebase-token-gerado-pelo-sdk"
+}
+```
+
+Resposta:
+
+```json
+{
+  "user": {
+    "id": 123,
+    "name": "Nome Completo",
+    "email": "usuario@exemplo.com",
+    "userType": "ALUNO"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 123,
+  "success": true
+}
+```
+
+## Utilizando o Token JWT
+
+Após autenticar, você receberá um token JWT que deve ser incluído em todas as requisições subsequentes no cabeçalho `Authorization`:
+
+```bash
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Exemplo de requisição autenticada:
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/users/profile' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+## Estrutura do Token
+
+O token JWT contém as seguintes claims:
+
+```json
+{
+  "sub": "123", // ID do usuário
+  "name": "Nome Completo",
+  "email": "usuario@exemplo.com",
+  "userType": "ALUNO", // ou "PERSONAL"
+  "iat": 1619712000, // Timestamp de emissão
+  "exp": 1619798400 // Timestamp de expiração
+}
+```
+
+## Renovação de Token
+
+Os tokens JWT têm validade de 24 horas. Para renovar um token antes que expire, utilize o endpoint:
+
+```bash
+POST /users/refresh-token
+```
+
+Cabeçalho:
+
+```bash
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Resposta:
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "success": true
+}
+```
+
+## Logout
+
+Para invalidar um token (logout):
+
+```bash
+POST /users/logout
+```
+
+Cabeçalho:
+
+```bash
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Resposta:
+
+```json
+{
+  "message": "Logout realizado com sucesso",
+  "success": true
+}
+```
+
+## Controle de Acesso
+
+O FitLocus implementa controle de acesso baseado em funções (RBAC) utilizando o campo `userType` do usuário. Existem dois tipos principais de usuário:
+
+- **ALUNO**: Acesso a funcionalidades de execução de treinos e acompanhamento de progresso
+- **PERSONAL**: Acesso a funcionalidades de criação de treinos e gerenciamento de alunos
+
+Endpoints protegidos verificam o tipo de usuário e aplicam as restrições de acesso apropriadas:
+
+```java
+@PreAuthorize("hasRole('PERSONAL')")
+@GetMapping("/students")
+public ResponseEntity<List<UserDTO>> getStudents() {
+    // Implementação...
+}
+```
+
+## Implementação no Frontend
+
+### Armazenamento do Token
+
+No frontend, o token JWT deve ser armazenado no localStorage:
+
+```typescript
+// Após login bem-sucedido
+localStorage.setItem('token', response.data.token);
+localStorage.setItem('user', JSON.stringify(response.data.user));
+```
+
+### Interceptor de Requisições
+
+Configure um interceptor para incluir automaticamente o token em todas as requisições:
+
+```typescript
+// Exemplo com Axios
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+```
+
+### Verificação de Autenticação
+
+Implemente um hook para verificar se o usuário está autenticado:
+
+```typescript
+export const useAuth = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      setIsAuthenticated(true);
+      setUser(JSON.parse(userData));
+    }
+  }, []);
+  
+  return { isAuthenticated, user };
+};
+```
+
+## Considerações de Segurança
+
+1. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS para proteger o token JWT durante a transmissão.
+
+2. **Armazenamento Seguro**: No frontend, o token deve ser armazenado de forma segura (localStorage para aplicações web, SecureStorage para aplicações móveis).
+
+3. **Expiração de Token**: Os tokens têm validade limitada (24 horas) para mitigar riscos em caso de comprometimento.
+
+4. **Validação de Token**: O backend valida a assinatura e a expiração de cada token em todas as requisições.
+
+5. **Proteção contra CSRF**: A autenticação baseada em token JWT já oferece proteção contra ataques CSRF.
+
+## Troubleshooting
+
+### Erros Comuns
+
+| Código | Mensagem | Solução |
+|--------|----------|---------|
+| 401 | Token inválido | Verifique se o token está sendo enviado corretamente no cabeçalho Authorization |
+| 401 | Token expirado | Renove o token utilizando o endpoint /users/refresh-token |
+| 403 | Acesso negado | Verifique se o usuário tem permissão para acessar o recurso |
+| 400 | Credenciais inválidas | Verifique se o email e senha estão corretos |
+
+### Depuração
+
+Para depurar problemas de autenticação:
+
+1. Verifique se o token está sendo enviado corretamente no cabeçalho Authorization
+2. Decodifique o token JWT em [jwt.io](https://jwt.io) para verificar as claims
+3. Verifique se o token não está expirado
+4. Confirme se o usuário tem as permissões necessárias para acessar o recurso
+
+## Recursos Adicionais
+
+- [Documentação do Spring Security](https://docs.spring.io/spring-security/reference/index.html)
+- [Guia de Autenticação JWT](https://jwt.io/introduction)
+- [Documentação do Firebase Authentication](https://firebase.google.com/docs/auth)

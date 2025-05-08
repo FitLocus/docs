@@ -1,0 +1,671 @@
+---
+title: 'Gerenciamento de Treinos'
+description: 'Sistema de exercícios, treinos e planos de treino no FitLocus'
+---
+
+# Gerenciamento de Treinos
+
+O sistema de gerenciamento de treinos é um componente central do FitLocus, permitindo que personal trainers criem exercícios personalizados, montem treinos e desenvolvam planos de treino completos para seus alunos.
+
+## Visão Geral
+
+<CardGroup cols={3}>
+  <Card title="Exercícios" icon="dumbbell">
+    Unidades básicas de treinamento com descrições, imagens e categorias.
+  </Card>
+  <Card title="Treinos" icon="list-check">
+    Conjuntos de exercícios organizados em uma sessão coerente.
+  </Card>
+  <Card title="Planos de Treino" icon="calendar">
+    Programações semanais de treinos para diferentes objetivos.
+  </Card>
+</CardGroup>
+
+## Exercícios
+
+Os exercícios são os blocos fundamentais do sistema de treinamento, representando movimentos específicos que podem ser incluídos em treinos.
+
+### Modelo de Dados
+
+```java
+@Entity
+@Table(name = "exercises")
+public class Exercise {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "name")
+    private String name;
+    
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+    
+    @Column(name = "image_url")
+    private String imageUrl;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category")
+    private ExerciseCategoryEnum category;
+    
+    @Column(name = "created_by")
+    private Long createdBy;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+    
+    // Getters e setters...
+}
+```
+
+### Categorias de Exercícios
+
+Os exercícios são organizados em categorias para facilitar a busca e organização:
+
+```java
+public enum ExerciseCategoryEnum {
+    PEITO("Peito"),
+    COSTAS("Costas"),
+    PERNAS("Pernas"),
+    GLUTEOS("Glúteos"),
+    OMBROS("Ombros"),
+    BICEPS("Bíceps"),
+    TRICEPS("Tríceps"),
+    ABDOMEN("Abdômen"),
+    CARDIO("Cardio"),
+    ALONGAMENTO("Alongamento"),
+    MOBILIDADE("Mobilidade"),
+    HIIT("HIIT"),
+    TREINO_EM_CASA("Treino em Casa");
+    
+    private final String displayName;
+}
+```
+
+### Criação de Exercícios
+
+Os personal trainers podem criar exercícios personalizados através da API:
+
+```java
+@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+public ResponseEntity<ExerciseDTO> createExercise(
+        @RequestPart("exercise") ExerciseDTO exerciseDTO,
+        @RequestPart("file") MultipartFile file,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long userId = userService.getUserIdFromUserDetails(userDetails);
+    exerciseDTO.setCreatedBy(userId);
+    
+    ExerciseDTO createdExercise = exerciseService.createExercise(exerciseDTO, file);
+    return ResponseEntity.status(HttpStatus.CREATED).body(createdExercise);
+}
+```
+
+A criação de exercícios inclui o upload de uma imagem ilustrativa, que é armazenada no Google Cloud Storage em ambiente de produção ou no sistema de arquivos local em ambiente de desenvolvimento.
+
+### Busca de Exercícios
+
+O sistema oferece diversas formas de buscar exercícios:
+
+```java
+// Busca por categoria
+@GetMapping("/category/{category}")
+public ResponseEntity<List<ExerciseDTO>> getExercisesByCategory(
+        @PathVariable ExerciseCategoryEnum category) {
+    List<ExerciseDTO> exercises = exerciseService.getExercisesByCategory(category);
+    return ResponseEntity.ok(exercises);
+}
+
+// Busca por texto
+@GetMapping("/search")
+public ResponseEntity<List<ExerciseDTO>> searchExercises(
+        @RequestParam String query) {
+    List<ExerciseDTO> exercises = exerciseService.searchExercises(query);
+    return ResponseEntity.ok(exercises);
+}
+
+// Busca por criador
+@GetMapping("/created-by-me")
+public ResponseEntity<List<ExerciseDTO>> getExercisesCreatedByMe(
+        @AuthenticationPrincipal UserDetails userDetails) {
+    Long userId = userService.getUserIdFromUserDetails(userDetails);
+    List<ExerciseDTO> exercises = exerciseService.getExercisesByCreator(userId);
+    return ResponseEntity.ok(exercises);
+}
+```
+
+## Treinos
+
+Os treinos são conjuntos de exercícios organizados em uma sessão coerente, com informações específicas sobre séries, repetições e descanso.
+
+### Modelo de Dados
+
+```java
+@Entity
+@Table(name = "trainings")
+public class Training {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "name")
+    private String name;
+    
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+    
+    @Column(name = "created_by")
+    private Long createdBy;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+    
+    @OneToMany(mappedBy = "training", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TrainingExercise> exercises = new ArrayList<>();
+    
+    // Getters e setters...
+}
+
+@Entity
+@Table(name = "training_exercises")
+public class TrainingExercise {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @ManyToOne
+    @JoinColumn(name = "training_id")
+    private Training training;
+    
+    @ManyToOne
+    @JoinColumn(name = "exercise_id")
+    private Exercise exercise;
+    
+    @Column(name = "sets")
+    private Integer sets;
+    
+    @Column(name = "reps")
+    private String reps;
+    
+    @Column(name = "rest_time")
+    private Integer restTime;
+    
+    @Column(name = "order_index")
+    private Integer orderIndex;
+    
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+    
+    // Getters e setters...
+}
+```
+
+### Criação de Treinos
+
+Os personal trainers podem criar treinos completos, incluindo múltiplos exercícios com suas especificações:
+
+```java
+@PostMapping
+public ResponseEntity<TrainingDTO> createTraining(
+        @RequestBody TrainingDTO trainingDTO,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long userId = userService.getUserIdFromUserDetails(userDetails);
+    trainingDTO.setCreatedBy(userId);
+    
+    TrainingDTO createdTraining = trainingService.createTraining(trainingDTO);
+    return ResponseEntity.status(HttpStatus.CREATED).body(createdTraining);
+}
+```
+
+O DTO de treino inclui uma lista de exercícios com suas especificações:
+
+```java
+public class TrainingDTO {
+    private Long id;
+    private String name;
+    private String description;
+    private Long createdBy;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private List<TrainingExerciseDTO> exercises;
+    
+    // Getters e setters...
+}
+
+public class TrainingExerciseDTO {
+    private Long id;
+    private Long exerciseId;
+    private ExerciseDTO exercise;
+    private Integer sets;
+    private String reps;
+    private Integer restTime;
+    private Integer orderIndex;
+    private String notes;
+    
+    // Getters e setters...
+}
+```
+
+### Atribuição de Treinos
+
+Os treinos podem ser atribuídos a alunos específicos:
+
+```java
+@PostMapping("/{trainingId}/assign")
+public ResponseEntity<TrainingAssignmentDTO> assignTraining(
+        @PathVariable Long trainingId,
+        @RequestBody TrainingAssignmentRequest request,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long personalId = userService.getUserIdFromUserDetails(userDetails);
+    
+    // Verificação de relacionamento
+    if (!personalStudentService.canAccessStudentData(personalId, request.getStudentId())) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+    
+    TrainingAssignmentDTO assignment = trainingService.assignTrainingToStudent(
+        trainingId, 
+        request.getStudentId(), 
+        request.getScheduledDate()
+    );
+    
+    return ResponseEntity.status(HttpStatus.CREATED).body(assignment);
+}
+```
+
+## Planos de Treino
+
+Os planos de treino são programações semanais que organizam diferentes treinos ao longo dos dias da semana.
+
+### Modelo de Dados
+
+```java
+@Entity
+@Table(name = "training_plans")
+public class TrainingPlan {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "name")
+    private String name;
+    
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+    
+    @Column(name = "created_by")
+    private Long createdBy;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+    
+    @OneToMany(mappedBy = "trainingPlan", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TrainingPlanDay> days = new ArrayList<>();
+    
+    // Getters e setters...
+}
+
+@Entity
+@Table(name = "training_plan_days")
+public class TrainingPlanDay {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @ManyToOne
+    @JoinColumn(name = "training_plan_id")
+    private TrainingPlan trainingPlan;
+    
+    @Column(name = "day_of_week")
+    private Integer dayOfWeek;
+    
+    @ManyToOne
+    @JoinColumn(name = "training_id")
+    private Training training;
+    
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+    
+    // Getters e setters...
+}
+```
+
+### Criação de Planos de Treino
+
+Os personal trainers podem criar planos de treino completos, organizando diferentes treinos ao longo da semana:
+
+```java
+@PostMapping
+public ResponseEntity<TrainingPlanDTO> createTrainingPlan(
+        @RequestBody TrainingPlanDTO trainingPlanDTO,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long userId = userService.getUserIdFromUserDetails(userDetails);
+    trainingPlanDTO.setCreatedBy(userId);
+    
+    TrainingPlanDTO createdPlan = trainingPlanService.createTrainingPlan(trainingPlanDTO);
+    return ResponseEntity.status(HttpStatus.CREATED).body(createdPlan);
+}
+```
+
+O DTO de plano de treino inclui uma lista de dias com seus respectivos treinos:
+
+```java
+public class TrainingPlanDTO {
+    private Long id;
+    private String name;
+    private String description;
+    private Long createdBy;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private List<TrainingPlanDayDTO> days;
+    
+    // Getters e setters...
+}
+
+public class TrainingPlanDayDTO {
+    private Long id;
+    private Integer dayOfWeek;
+    private Long trainingId;
+    private TrainingDTO training;
+    private String notes;
+    
+    // Getters e setters...
+}
+```
+
+### Atribuição de Planos de Treino
+
+Os planos de treino podem ser atribuídos a alunos específicos:
+
+```java
+@PostMapping("/{planId}/assign")
+public ResponseEntity<TrainingPlanAssignmentDTO> assignTrainingPlan(
+        @PathVariable Long planId,
+        @RequestBody TrainingPlanAssignmentRequest request,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long personalId = userService.getUserIdFromUserDetails(userDetails);
+    
+    // Verificação de relacionamento
+    if (!personalStudentService.canAccessStudentData(personalId, request.getStudentId())) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+    
+    TrainingPlanAssignmentDTO assignment = trainingPlanService.assignTrainingPlanToStudent(
+        planId, 
+        request.getStudentId(), 
+        request.getStartDate()
+    );
+    
+    return ResponseEntity.status(HttpStatus.CREATED).body(assignment);
+}
+```
+
+## Execução de Treinos
+
+Os alunos podem registrar a execução de seus treinos, incluindo detalhes sobre cada exercício:
+
+### Modelo de Dados
+
+```java
+@Entity
+@Table(name = "training_executions")
+public class TrainingExecution {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "student_id")
+    private Long studentId;
+    
+    @ManyToOne
+    @JoinColumn(name = "training_id")
+    private Training training;
+    
+    @Column(name = "start_time")
+    private LocalDateTime startTime;
+    
+    @Column(name = "end_time")
+    private LocalDateTime endTime;
+    
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+    
+    @OneToMany(mappedBy = "trainingExecution", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ExerciseExecution> exerciseExecutions = new ArrayList<>();
+    
+    // Getters e setters...
+}
+
+@Entity
+@Table(name = "exercise_executions")
+public class ExerciseExecution {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @ManyToOne
+    @JoinColumn(name = "training_execution_id")
+    private TrainingExecution trainingExecution;
+    
+    @ManyToOne
+    @JoinColumn(name = "exercise_id")
+    private Exercise exercise;
+    
+    @Column(name = "sets_completed")
+    private Integer setsCompleted;
+    
+    @Column(name = "reps_completed")
+    private String repsCompleted;
+    
+    @Column(name = "weight")
+    private String weight;
+    
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+    
+    // Getters e setters...
+}
+```
+
+### Registro de Execução
+
+Os alunos podem registrar a execução de treinos através da API:
+
+```java
+@PostMapping
+public ResponseEntity<TrainingExecutionDTO> recordTrainingExecution(
+        @RequestBody TrainingExecutionDTO executionDTO,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long studentId = userService.getUserIdFromUserDetails(userDetails);
+    executionDTO.setStudentId(studentId);
+    
+    TrainingExecutionDTO recordedExecution = trainingExecutionService.recordTrainingExecution(executionDTO);
+    return ResponseEntity.status(HttpStatus.CREATED).body(recordedExecution);
+}
+```
+
+## Recordes Pessoais
+
+O sistema também rastreia recordes pessoais dos alunos em exercícios específicos:
+
+### Modelo de Dados
+
+```java
+@Entity
+@Table(name = "personal_records")
+public class PersonalRecord {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "student_id")
+    private Long studentId;
+    
+    @ManyToOne
+    @JoinColumn(name = "exercise_id")
+    private Exercise exercise;
+    
+    @Column(name = "value")
+    private Double value;
+    
+    @Column(name = "unit")
+    private String unit;
+    
+    @Column(name = "achieved_at")
+    private LocalDateTime achievedAt;
+    
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+    
+    // Getters e setters...
+}
+```
+
+### Registro de Recordes
+
+Os recordes pessoais podem ser registrados manualmente ou automaticamente durante a execução de treinos:
+
+```java
+@PostMapping
+public ResponseEntity<PersonalRecordDTO> recordPersonalRecord(
+        @RequestBody PersonalRecordDTO recordDTO,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    
+    Long studentId = userService.getUserIdFromUserDetails(userDetails);
+    recordDTO.setStudentId(studentId);
+    
+    PersonalRecordDTO savedRecord = personalRecordService.savePersonalRecord(recordDTO);
+    return ResponseEntity.status(HttpStatus.CREATED).body(savedRecord);
+}
+```
+
+## Fluxos de Usuário
+
+### Fluxo do Personal Trainer
+
+1. **Criação de Exercícios**
+   - Criação de exercícios personalizados com descrições e imagens
+   - Categorização de exercícios para fácil organização
+
+2. **Montagem de Treinos**
+   - Seleção de exercícios da biblioteca
+   - Definição de séries, repetições e tempo de descanso
+   - Organização da ordem dos exercícios
+
+3. **Elaboração de Planos de Treino**
+   - Criação de programações semanais
+   - Atribuição de treinos específicos para cada dia da semana
+   - Personalização baseada nos objetivos do aluno
+
+4. **Atribuição a Alunos**
+   - Atribuição de treinos ou planos completos a alunos específicos
+   - Definição de datas de início e fim
+   - Acompanhamento da execução e progresso
+
+### Fluxo do Aluno
+
+1. **Visualização de Treinos**
+   - Acesso aos treinos atribuídos pelo personal
+   - Visualização de detalhes de cada exercício
+   - Preparação para a sessão de treino
+
+2. **Execução de Treinos**
+   - Registro de início e fim do treino
+   - Marcação de séries e repetições completadas
+   - Registro de pesos utilizados
+
+3. **Acompanhamento de Progresso**
+   - Visualização de histórico de treinos
+   - Acompanhamento de recordes pessoais
+   - Análise de evolução ao longo do tempo
+
+## Considerações Técnicas
+
+1. **Segurança de Dados**
+   - Personal trainers só podem acessar treinos e execuções de seus próprios alunos
+   - Alunos só podem acessar seus próprios treinos e execuções
+
+2. **Validações**
+   - Verificação de limites de exercícios por treino baseado no plano de assinatura
+   - Validação de dados de execução (pesos, repetições, etc.)
+
+3. **Armazenamento de Imagens**
+   - Imagens de exercícios são armazenadas no Google Cloud Storage em produção
+   - Sistema de arquivos local é utilizado em ambiente de desenvolvimento
+
+4. **Otimização de Consultas**
+   - Uso de consultas otimizadas para busca de treinos e exercícios
+   - Implementação de cache para dados frequentemente acessados
+
+## Implementação Frontend
+
+No frontend, o sistema de gerenciamento de treinos é implementado através de serviços e componentes específicos:
+
+```typescript
+// Exemplo de serviço para gerenciamento de exercícios
+export const exerciseService = {
+  // Listar exercícios por categoria
+  getExercisesByCategory: async (category: string) => {
+    const response = await api.get(`/exercises/category/${category}`);
+    return response.data;
+  },
+  
+  // Criar novo exercício
+  createExercise: async (exerciseData: FormData) => {
+    const response = await api.post('/exercises', exerciseData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+  
+  // Buscar exercícios
+  searchExercises: async (query: string) => {
+    const response = await api.get(`/exercises/search?query=${query}`);
+    return response.data;
+  }
+};
+
+// Exemplo de serviço para gerenciamento de treinos
+export const trainingService = {
+  // Listar treinos criados pelo personal
+  getMyTrainings: async () => {
+    const response = await api.get('/trainings/created-by-me');
+    return response.data;
+  },
+  
+  // Criar novo treino
+  createTraining: async (trainingData: TrainingDTO) => {
+    const response = await api.post('/trainings', trainingData);
+    return response.data;
+  },
+  
+  // Atribuir treino a um aluno
+  assignTraining: async (trainingId: number, studentId: number, scheduledDate: string) => {
+    const response = await api.post(`/trainings/${trainingId}/assign`, {
+      studentId,
+      scheduledDate
+    });
+    return response.data;
+  }
+};
+```
+
+## Conclusão
+
+O sistema de gerenciamento de treinos é um componente fundamental do FitLocus, permitindo a criação, atribuição e execução de treinos personalizados. A implementação cuidadosa deste sistema, com foco em personalização, usabilidade e segurança, é essencial para proporcionar uma experiência completa tanto para personal trainers quanto para alunos.

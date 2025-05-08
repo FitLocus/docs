@@ -1,0 +1,286 @@
+---
+title: 'Integração de Exercícios'
+description: 'Exemplos de código para integração com o sistema de exercícios do FitLocus'
+---
+
+# Integração de Exercícios
+
+Este guia fornece exemplos práticos para integrar sua aplicação com o sistema de exercícios do FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A integração com o sistema de exercícios do FitLocus inclui:
+    </p>
+    <ul>
+      <li>Criação e gerenciamento de exercícios</li>
+      <li>Categorização e filtragem de exercícios</li>
+      <li>Upload e gerenciamento de mídias de exercícios</li>
+      <li>Registro e acompanhamento de execuções de exercícios</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos Técnicos
+
+Para integrar com o sistema de exercícios do FitLocus, você precisará:
+
+- **Backend**: Java 21, Spring Boot, Spring Data JPA
+- **Frontend**: Axios/fetch, biblioteca de upload de arquivos
+
+## Exemplos de Integração
+
+### Backend (Java 21 + Spring Boot)
+
+#### Modelo de Exercício
+
+```java
+@Entity
+@Table(name = "exercises")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Exercise {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", nullable = false)
+    private ExerciseCategoryEnum category;
+
+    @Column(name = "image_url")
+    private String imageUrl;
+
+    @Column(name = "video_url")
+    private String videoUrl;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "is_public")
+    private Boolean isPublic;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}
+```
+
+#### Serviço de Exercício
+
+```java
+@Service
+@Transactional
+public class ExerciseService {
+    private final ExerciseRepository exerciseRepository;
+    private final FileStorageService fileStorageService;
+
+    public ExerciseService(ExerciseRepository exerciseRepository, 
+                          FileStorageService fileStorageService) {
+        this.exerciseRepository = exerciseRepository;
+        this.fileStorageService = fileStorageService;
+    }
+
+    public ExerciseDTO getExerciseById(Long id, Long userId) {
+        Exercise exercise = exerciseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Exercício não encontrado"));
+        
+        // Verificar se o usuário tem acesso ao exercício
+        if (!exercise.getIsPublic() && !exercise.getCreatedBy().equals(userId)) {
+            throw new AccessDeniedException("Acesso negado ao exercício");
+        }
+        
+        return ExerciseDTO.fromEntity(exercise);
+    }
+
+    public List<ExerciseDTO> getAllExercises(Long userId) {
+        List<Exercise> exercises = exerciseRepository.findAvailableExercises(userId);
+        return exercises.stream()
+                .map(ExerciseDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    // Outros métodos omitidos para brevidade
+}
+```
+
+### Frontend (React + TypeScript)
+
+#### Serviço de Exercício
+
+```typescript
+// src/services/exercise.service.ts
+import api from './api';
+
+export interface Exercise {
+  id: number;
+  name: string;
+  description?: string;
+  category: 'PEITO' | 'COSTAS' | 'PERNAS' | 'OMBROS' | 'BICEPS' | 'TRICEPS' | 'ABDOMEN' | 'GLUTEOS' | 'CARDIO' | 'ALONGAMENTO' | 'OUTRO';
+  imageUrl?: string;
+  videoUrl?: string;
+  createdBy: number;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+class ExerciseService {
+  async getExerciseById(id: number): Promise<Exercise> {
+    const response = await api.get<Exercise>(`/exercises/${id}`);
+    return response.data;
+  }
+
+  async getAllExercises(): Promise<Exercise[]> {
+    const response = await api.get<Exercise[]>('/exercises');
+    return response.data;
+  }
+
+  // Outros métodos omitidos para brevidade
+}
+
+export default new ExerciseService();
+```
+
+#### Hook de Exercício
+
+```typescript
+// src/hooks/useExercises.ts
+import { useState, useEffect, useCallback } from 'react';
+import exerciseService, { Exercise } from '../services/exercise.service';
+
+export const useExercises = () => {
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchExercises = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await exerciseService.getAllExercises();
+      setExercises(data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao carregar exercícios');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExercises();
+  }, [fetchExercises]);
+
+  // Outros métodos omitidos para brevidade
+
+  return {
+    exercises,
+    loading,
+    error,
+    fetchExercises,
+    // Outros métodos
+  };
+};
+```
+
+## Componente de Lista de Exercícios
+
+```tsx
+// src/components/ExerciseList.tsx
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useExercises } from '../hooks/useExercises';
+
+const ExerciseList: React.FC = () => {
+  const { exercises, loading, error, fetchExercises } = useExercises();
+  const [selectedCategory, setSelectedCategory] = useState('TODOS');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Implementação omitida para brevidade
+
+  return (
+    <div className="exercise-list">
+      <div className="exercise-list-header">
+        <h2>Exercícios</h2>
+        <Link to="/exercises/new" className="button">Novo Exercício</Link>
+      </div>
+      
+      {/* Filtros e lista de exercícios */}
+      
+      {exercises.length === 0 ? (
+        <div className="empty-state">
+          <p>Nenhum exercício encontrado.</p>
+          <Link to="/exercises/new" className="button">Criar Exercício</Link>
+        </div>
+      ) : (
+        <div className="exercise-grid">
+          {exercises.map(exercise => (
+            <ExerciseCard key={exercise.id} exercise={exercise} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ExerciseList;
+```
+
+## Melhores Práticas
+
+### Segurança
+
+1. **Validação de Dados**:
+   - Valide todos os dados de entrada no backend e frontend
+   - Utilize bibliotecas como Yup, Zod ou Bean Validation
+
+2. **Controle de Acesso**:
+   - Implemente verificações de autorização em todos os endpoints
+   - Utilize anotações como `@PreAuthorize` no Spring Security
+
+### Performance
+
+1. **Paginação**:
+   - Implemente paginação para listas grandes de exercícios
+   - Utilize `Page<T>` do Spring Data para paginação no backend
+
+2. **Otimização de Imagens e Vídeos**:
+   - Utilize serviços de CDN para entrega de mídia
+   - Implemente carregamento lazy de imagens e vídeos
+
+## Solução de Problemas
+
+### Erros Comuns
+
+| Erro | Causa Provável | Solução |
+|------|----------------|---------|
+| 404 Not Found | Exercício não encontrado | Verificar ID do exercício |
+| 403 Forbidden | Permissões insuficientes | Verificar se o usuário tem acesso ao exercício |
+| 400 Bad Request | Dados inválidos | Verificar validação de dados |
+
+## Recursos Adicionais
+
+- [Documentação da API de Exercícios](/api-reference/exercises/overview)
+- [Tutorial de Criação de Exercícios](/tutorials/create-exercise)

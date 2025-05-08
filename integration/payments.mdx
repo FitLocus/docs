@@ -1,0 +1,698 @@
+---
+title: 'Integração de Pagamentos'
+description: 'Exemplos de código para integração com o sistema de pagamentos do FitLocus'
+---
+
+# Integração de Pagamentos
+
+Este guia fornece exemplos práticos para integrar sua aplicação com o sistema de pagamentos do FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A integração com o sistema de pagamentos do FitLocus inclui:
+    </p>
+    <ul>
+      <li>Processamento de assinaturas</li>
+      <li>Gerenciamento de planos</li>
+      <li>Processamento de pagamentos</li>
+      <li>Webhooks para notificações de eventos</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos Técnicos
+
+Para integrar com o sistema de pagamentos do FitLocus, você precisará:
+
+- **Backend**: Java 21, Spring Boot, Spring Data JPA
+- **Frontend**: Axios/fetch, biblioteca de formulários de pagamento
+- **Gateway de Pagamento**: Integração com gateway de pagamento (Stripe, PayPal, etc.)
+
+## Exemplos de Integração
+
+### Backend (Java 21 + Spring Boot)
+
+#### Modelo de Assinatura
+
+```java
+@Entity
+@Table(name = "subscriptions")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Subscription {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subscription_type", nullable = false)
+    private SubscriptionType subscriptionType;
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDateTime startDate;
+
+    @Column(name = "end_date", nullable = false)
+    private LocalDateTime endDate;
+
+    @Column(name = "payment_id")
+    private String paymentId;
+
+    @Column(name = "payment_method")
+    private String paymentMethod;
+
+    @Column(name = "status", nullable = false)
+    private String status;
+
+    @Column(name = "auto_renew")
+    private Boolean autoRenew;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}
+```
+
+#### Serviço de Pagamento
+
+```java
+@Service
+@Transactional
+public class PaymentService {
+    private final SubscriptionRepository subscriptionRepository;
+    private final UserRepository userRepository;
+    private final StripeClient stripeClient;
+
+    public PaymentService(SubscriptionRepository subscriptionRepository,
+                         UserRepository userRepository,
+                         StripeClient stripeClient) {
+        this.subscriptionRepository = subscriptionRepository;
+        this.userRepository = userRepository;
+        this.stripeClient = stripeClient;
+    }
+
+    public SubscriptionDTO createSubscription(SubscriptionRequest request, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+        
+        // Calcular data de término com base no tipo de assinatura
+        LocalDateTime startDate = LocalDateTime.now();
+        LocalDateTime endDate;
+        
+        switch (request.getSubscriptionType()) {
+            case MENSAL:
+                endDate = startDate.plusMonths(1);
+                break;
+            case TRIMESTRAL:
+                endDate = startDate.plusMonths(3);
+                break;
+            case SEMESTRAL:
+                endDate = startDate.plusMonths(6);
+                break;
+            case ANUAL:
+                endDate = startDate.plusYears(1);
+                break;
+            default:
+                throw new IllegalArgumentException("Tipo de assinatura inválido");
+        }
+        
+        // Criar assinatura no banco de dados
+        Subscription subscription = Subscription.builder()
+                .userId(userId)
+                .subscriptionType(request.getSubscriptionType())
+                .startDate(startDate)
+                .endDate(endDate)
+                .paymentMethod(request.getPaymentMethod())
+                .status("PENDING")
+                .autoRenew(request.getAutoRenew())
+                .build();
+        
+        Subscription savedSubscription = subscriptionRepository.save(subscription);
+        
+        // Processar pagamento com Stripe
+        try {
+            String paymentId = stripeClient.createPayment(
+                    request.getToken(),
+                    getSubscriptionAmount(request.getSubscriptionType()),
+                    "BRL",
+                    "Assinatura " + request.getSubscriptionType().name(),
+                    user.getEmail()
+            );
+            
+            savedSubscription.setPaymentId(paymentId);
+            savedSubscription.setStatus("ACTIVE");
+            savedSubscription = subscriptionRepository.save(savedSubscription);
+            
+            // Atualizar usuário com nova data de expiração
+            user.setSubscriptionType(request.getSubscriptionType());
+            user.setSubscriptionExpirationDate(endDate);
+            userRepository.save(user);
+        } catch (Exception e) {
+            savedSubscription.setStatus("FAILED");
+            subscriptionRepository.save(savedSubscription);
+            throw new PaymentException("Falha ao processar pagamento: " + e.getMessage());
+        }
+        
+        return SubscriptionDTO.fromEntity(savedSubscription);
+    }
+
+    public SubscriptionDTO cancelSubscription(Long subscriptionId, Long userId) {
+        Subscription subscription = subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assinatura não encontrada"));
+        
+        // Verificar se o usuário é o dono da assinatura
+        if (!subscription.getUserId().equals(userId)) {
+            throw new AccessDeniedException("Acesso negado à assinatura");
+        }
+        
+        // Cancelar renovação automática
+        subscription.setAutoRenew(false);
+        
+        // Se a assinatura estiver ativa no Stripe, cancelar
+        if (subscription.getPaymentId() != null && subscription.getStatus().equals("ACTIVE")) {
+            try {
+                stripeClient.cancelSubscription(subscription.getPaymentId());
+            } catch (Exception e) {
+                throw new PaymentException("Falha ao cancelar assinatura: " + e.getMessage());
+            }
+        }
+        
+        Subscription updatedSubscription = subscriptionRepository.save(subscription);
+        return SubscriptionDTO.fromEntity(updatedSubscription);
+    }
+
+    public List<SubscriptionDTO> getUserSubscriptions(Long userId) {
+        List<Subscription> subscriptions = subscriptionRepository.findByUserId(userId);
+        return subscriptions.stream()
+                .map(SubscriptionDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public SubscriptionDTO getCurrentSubscription(Long userId) {
+        return subscriptionRepository.findByUserIdAndStatusAndEndDateAfter(
+                userId, "ACTIVE", LocalDateTime.now())
+                .map(SubscriptionDTO::fromEntity)
+                .orElse(null);
+    }
+
+    private BigDecimal getSubscriptionAmount(SubscriptionType type) {
+        switch (type) {
+            case MENSAL:
+                return new BigDecimal("49.90");
+            case TRIMESTRAL:
+                return new BigDecimal("129.90");
+            case SEMESTRAL:
+                return new BigDecimal("239.90");
+            case ANUAL:
+                return new BigDecimal("449.90");
+            default:
+                return BigDecimal.ZERO;
+        }
+    }
+}
+```
+
+#### Controlador de Pagamento
+
+```java
+@RestController
+@RequestMapping("/api/payments")
+public class PaymentController {
+    private final PaymentService paymentService;
+
+    public PaymentController(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+    @PostMapping("/subscribe")
+    public ResponseEntity<SubscriptionDTO> createSubscription(
+            @Valid @RequestBody SubscriptionRequest request,
+            Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        SubscriptionDTO subscription = paymentService.createSubscription(request, user.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(subscription);
+    }
+
+    @PostMapping("/subscriptions/{id}/cancel")
+    public ResponseEntity<SubscriptionDTO> cancelSubscription(
+            @PathVariable Long id,
+            Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        SubscriptionDTO subscription = paymentService.cancelSubscription(id, user.getId());
+        return ResponseEntity.ok(subscription);
+    }
+
+    @GetMapping("/subscriptions")
+    public ResponseEntity<List<SubscriptionDTO>> getUserSubscriptions(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        List<SubscriptionDTO> subscriptions = paymentService.getUserSubscriptions(user.getId());
+        return ResponseEntity.ok(subscriptions);
+    }
+
+    @GetMapping("/subscriptions/current")
+    public ResponseEntity<SubscriptionDTO> getCurrentSubscription(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        SubscriptionDTO subscription = paymentService.getCurrentSubscription(user.getId());
+        
+        if (subscription == null) {
+            return ResponseEntity.noContent().build();
+        }
+        
+        return ResponseEntity.ok(subscription);
+    }
+
+    @PostMapping("/webhook")
+    public ResponseEntity<Void> handleWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String signature) {
+        try {
+            // Processar webhook do Stripe
+            // Implementação omitida para brevidade
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+}
+```
+
+### Frontend (React + TypeScript)
+
+#### Serviço de Pagamento
+
+```typescript
+// src/services/payment.service.ts
+import api from './api';
+
+export interface SubscriptionRequest {
+  subscriptionType: 'MENSAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+  paymentMethod: 'CREDIT_CARD' | 'PIX' | 'BOLETO';
+  token: string;
+  autoRenew: boolean;
+}
+
+export interface Subscription {
+  id: number;
+  userId: number;
+  subscriptionType: 'MENSAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+  startDate: string;
+  endDate: string;
+  paymentId?: string;
+  paymentMethod: string;
+  status: string;
+  autoRenew: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+class PaymentService {
+  async createSubscription(data: SubscriptionRequest): Promise<Subscription> {
+    const response = await api.post<Subscription>('/payments/subscribe', data);
+    return response.data;
+  }
+
+  async cancelSubscription(id: number): Promise<Subscription> {
+    const response = await api.post<Subscription>(`/payments/subscriptions/${id}/cancel`);
+    return response.data;
+  }
+
+  async getUserSubscriptions(): Promise<Subscription[]> {
+    const response = await api.get<Subscription[]>('/payments/subscriptions');
+    return response.data;
+  }
+
+  async getCurrentSubscription(): Promise<Subscription | null> {
+    try {
+      const response = await api.get<Subscription>('/payments/subscriptions/current');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 204) {
+        return null;
+      }
+      throw error;
+    }
+  }
+}
+
+export default new PaymentService();
+```
+
+#### Componente de Checkout
+
+```tsx
+// src/components/SubscriptionCheckout.tsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
+import paymentService, { SubscriptionRequest } from '../services/payment.service';
+
+interface SubscriptionCheckoutProps {
+  subscriptionType: 'MENSAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+}
+
+const SubscriptionCheckout: React.FC<SubscriptionCheckoutProps> = ({ subscriptionType }) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const navigate = useNavigate();
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [autoRenew, setAutoRenew] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState<'CREDIT_CARD' | 'PIX' | 'BOLETO'>('CREDIT_CARD');
+
+  const getSubscriptionAmount = () => {
+    switch (subscriptionType) {
+      case 'MENSAL':
+        return 'R$ 49,90';
+      case 'TRIMESTRAL':
+        return 'R$ 129,90';
+      case 'SEMESTRAL':
+        return 'R$ 239,90';
+      case 'ANUAL':
+        return 'R$ 449,90';
+      default:
+        return 'R$ 0,00';
+    }
+  };
+
+  const getSubscriptionLabel = () => {
+    switch (subscriptionType) {
+      case 'MENSAL':
+        return 'Mensal';
+      case 'TRIMESTRAL':
+        return 'Trimestral';
+      case 'SEMESTRAL':
+        return 'Semestral';
+      case 'ANUAL':
+        return 'Anual';
+      default:
+        return '';
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!stripe || !elements) {
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Obter token do cartão
+      const cardElement = elements.getElement(CardElement);
+      
+      if (!cardElement) {
+        throw new Error('Elemento de cartão não encontrado');
+      }
+      
+      const { token, error } = await stripe.createToken(cardElement);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (!token) {
+        throw new Error('Falha ao gerar token de pagamento');
+      }
+      
+      // Criar assinatura
+      const subscriptionRequest: SubscriptionRequest = {
+        subscriptionType,
+        paymentMethod,
+        token: token.id,
+        autoRenew,
+      };
+      
+      await paymentService.createSubscription(subscriptionRequest);
+      
+      // Redirecionar para página de sucesso
+      navigate('/subscription/success');
+    } catch (err: any) {
+      setError(err.message || 'Erro ao processar pagamento');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="subscription-checkout">
+      <h2>Checkout - Plano {getSubscriptionLabel()}</h2>
+      
+      <div className="subscription-summary">
+        <h3>Resumo da Assinatura</h3>
+        <p><strong>Plano:</strong> {getSubscriptionLabel()}</p>
+        <p><strong>Valor:</strong> {getSubscriptionAmount()}</p>
+      </div>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <form onSubmit={handleSubmit}>
+        <div className="payment-method-selector">
+          <h3>Método de Pagamento</h3>
+          <div className="payment-options">
+            <label>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="CREDIT_CARD"
+                checked={paymentMethod === 'CREDIT_CARD'}
+                onChange={() => setPaymentMethod('CREDIT_CARD')}
+              />
+              Cartão de Crédito
+            </label>
+            
+            <label>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="PIX"
+                checked={paymentMethod === 'PIX'}
+                onChange={() => setPaymentMethod('PIX')}
+              />
+              PIX
+            </label>
+            
+            <label>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="BOLETO"
+                checked={paymentMethod === 'BOLETO'}
+                onChange={() => setPaymentMethod('BOLETO')}
+              />
+              Boleto Bancário
+            </label>
+          </div>
+        </div>
+        
+        {paymentMethod === 'CREDIT_CARD' && (
+          <div className="card-element-container">
+            <h3>Dados do Cartão</h3>
+            <CardElement
+              options={{
+                style: {
+                  base: {
+                    fontSize: '16px',
+                    color: '#424770',
+                    '::placeholder': {
+                      color: '#aab7c4',
+                    },
+                  },
+                  invalid: {
+                    color: '#9e2146',
+                  },
+                },
+              }}
+            />
+          </div>
+        )}
+        
+        <div className="auto-renew-option">
+          <label>
+            <input
+              type="checkbox"
+              checked={autoRenew}
+              onChange={(e) => setAutoRenew(e.target.checked)}
+            />
+            Renovar automaticamente ao final do período
+          </label>
+        </div>
+        
+        <button type="submit" disabled={!stripe || loading} className="checkout-button">
+          {loading ? 'Processando...' : 'Finalizar Assinatura'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default SubscriptionCheckout;
+```
+
+## Integração com Stripe
+
+### Configuração do Stripe
+
+```typescript
+// src/stripe/StripeProvider.tsx
+import React from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+
+const stripePromise = loadStripe('pk_test_your_stripe_public_key');
+
+interface StripeProviderProps {
+  children: React.ReactNode;
+}
+
+const StripeProvider: React.FC<StripeProviderProps> = ({ children }) => {
+  return (
+    <Elements stripe={stripePromise}>
+      {children}
+    </Elements>
+  );
+};
+
+export default StripeProvider;
+```
+
+### Cliente Stripe no Backend
+
+```java
+@Service
+public class StripeClient {
+    private final String apiKey;
+    
+    public StripeClient(@Value("${stripe.api.key}") String apiKey) {
+        this.apiKey = apiKey;
+        Stripe.apiKey = apiKey;
+    }
+    
+    public String createPayment(String token, BigDecimal amount, String currency, String description, String email) throws StripeException {
+        Map<String, Object> params = new HashMap<>();
+        params.put("amount", amount.multiply(new BigDecimal("100")).intValue()); // Stripe usa centavos
+        params.put("currency", currency.toLowerCase());
+        params.put("description", description);
+        params.put("source", token);
+        params.put("receipt_email", email);
+        
+        Charge charge = Charge.create(params);
+        return charge.getId();
+    }
+    
+    public void cancelSubscription(String subscriptionId) throws StripeException {
+        Subscription subscription = Subscription.retrieve(subscriptionId);
+        subscription.cancel();
+    }
+}
+```
+
+## Webhook para Eventos de Pagamento
+
+```java
+@RestController
+@RequestMapping("/api/payments/webhook")
+public class PaymentWebhookController {
+    private final SubscriptionService subscriptionService;
+    private final String webhookSecret;
+    
+    public PaymentWebhookController(
+            SubscriptionService subscriptionService,
+            @Value("${stripe.webhook.secret}") String webhookSecret) {
+        this.subscriptionService = subscriptionService;
+        this.webhookSecret = webhookSecret;
+    }
+    
+    @PostMapping
+    public ResponseEntity<Void> handleWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String signature) {
+        try {
+            Event event = Webhook.constructEvent(payload, signature, webhookSecret);
+            
+            switch (event.getType()) {
+                case "payment_intent.succeeded":
+                    handlePaymentSucceeded(event);
+                    break;
+                case "payment_intent.payment_failed":
+                    handlePaymentFailed(event);
+                    break;
+                case "customer.subscription.deleted":
+                    handleSubscriptionCanceled(event);
+                    break;
+                // Outros eventos
+            }
+            
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+    
+    private void handlePaymentSucceeded(Event event) {
+        // Implementação omitida para brevidade
+    }
+    
+    private void handlePaymentFailed(Event event) {
+        // Implementação omitida para brevidade
+    }
+    
+    private void handleSubscriptionCanceled(Event event) {
+        // Implementação omitida para brevidade
+    }
+}
+```
+
+## Melhores Práticas
+
+### Segurança
+
+1. **Tokenização de Dados de Pagamento**:
+   - Nunca armazene dados de cartão de crédito diretamente
+   - Utilize tokenização através do gateway de pagamento
+
+2. **Validação de Webhooks**:
+   - Verifique assinaturas de webhooks para evitar ataques
+   - Implemente idempotência para evitar processamento duplicado
+
+### Conformidade
+
+1. **PCI DSS**:
+   - Siga as diretrizes de conformidade PCI DSS
+   - Utilize gateways de pagamento certificados
+
+2. **LGPD/GDPR**:
+   - Armazene apenas os dados necessários
+   - Implemente políticas de retenção de dados
+
+## Solução de Problemas
+
+### Erros Comuns
+
+| Erro | Causa Provável | Solução |
+|------|----------------|---------|
+| Pagamento recusado | Cartão inválido ou sem fundos | Verificar dados do cartão e saldo |
+| Webhook falhou | Assinatura inválida | Verificar chave secreta do webhook |
+| Erro de integração | Configuração incorreta | Verificar chaves de API e configurações |
+
+## Recursos Adicionais
+
+- [Documentação da API de Pagamentos](/api-reference/payments/overview)
+- [Tutorial de Integração de Gateway de Pagamento](/tutorials/integrate-payment-gateway)
+- [Documentação do Stripe](https://stripe.com/docs)

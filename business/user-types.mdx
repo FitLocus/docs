@@ -1,0 +1,215 @@
+---
+title: 'Tipos de Usuário'
+description: 'Perfis de usuário e suas permissões no FitLocus'
+---
+
+# Tipos de Usuário
+
+O FitLocus possui dois tipos principais de usuário, cada um com funções e permissões específicas dentro da plataforma.
+
+## Visão Geral
+
+<CardGroup cols={2}>
+  <Card title="Aluno" icon="user">
+    Usuários que buscam acompanhamento de treinos e monitoramento de progresso físico.
+  </Card>
+  <Card title="Personal Trainer" icon="dumbbell">
+    Profissionais de educação física que criam e gerenciam treinos para seus alunos.
+  </Card>
+</CardGroup>
+
+## Implementação Técnica
+
+No backend, os tipos de usuário são implementados através do enum `EnumUserType`:
+
+```java
+public enum EnumUserType {
+    ALUNO,
+    PERSONAL
+}
+```
+
+Este enum é utilizado na entidade `User` para determinar o tipo de cada usuário registrado no sistema:
+
+```java
+@Entity
+@Table(name = "users")
+public class User {
+    // Outros campos...
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "user_type")
+    private EnumUserType userType;
+    
+    // Getters e setters...
+}
+```
+
+## Perfil: Aluno
+
+### Características
+
+- Usuário final da plataforma
+- Foco em execução de treinos e acompanhamento de progresso
+- Pode ter vínculo com um ou mais personal trainers
+- Acesso via aplicativo móvel (iOS/Android)
+
+### Permissões
+
+| Funcionalidade | Acesso |
+|----------------|--------|
+| Visualizar treinos atribuídos | ✅ |
+| Executar treinos | ✅ |
+| Registrar progresso | ✅ |
+| Visualizar histórico | ✅ |
+| Acompanhar métricas | ✅ |
+| Criar exercícios | ❌ |
+| Criar treinos | ❌ |
+| Gerenciar outros usuários | ❌ |
+
+### Fluxos Principais
+
+1. **Registro e Onboarding**
+   - Cadastro via email/senha ou Google
+   - Preenchimento de perfil (dados físicos, objetivos)
+   - Escolha de plano (Freemium ou Premium)
+
+2. **Vinculação com Personal**
+   - Recebimento de convite de personal trainer
+   - Aceitação do vínculo
+   - Acesso aos treinos criados pelo personal
+
+3. **Execução de Treinos**
+   - Visualização de treinos disponíveis
+   - Execução passo a passo
+   - Registro de séries, repetições e cargas
+   - Marcação de conclusão
+
+4. **Acompanhamento de Progresso**
+   - Visualização de histórico de treinos
+   - Acompanhamento de métricas (peso, medidas)
+   - Visualização de recordes pessoais
+
+## Perfil: Personal Trainer
+
+### Características
+
+- Profissional de educação física
+- Foco em criação e gerenciamento de treinos
+- Pode ter vínculo com múltiplos alunos (dependendo do plano)
+- Acesso via aplicativo móvel e plataforma web
+
+### Permissões
+
+| Funcionalidade | Acesso |
+|----------------|--------|
+| Criar exercícios | ✅ |
+| Criar treinos | ✅ |
+| Criar planos de treino | ✅ |
+| Gerenciar alunos | ✅ |
+| Visualizar progresso dos alunos | ✅ |
+| Gerar relatórios | ✅ |
+| Acessar dados de outros personals | ❌ |
+| Modificar dados de sistema | ❌ |
+
+### Fluxos Principais
+
+1. **Registro e Onboarding**
+   - Cadastro via email/senha ou Google
+   - Preenchimento de perfil profissional
+   - Escolha de plano (baseado na quantidade de alunos)
+
+2. **Gerenciamento de Alunos**
+   - Envio de convites para alunos
+   - Visualização de lista de alunos
+   - Acompanhamento de progresso individual
+
+3. **Criação de Conteúdo**
+   - Criação de exercícios personalizados
+   - Montagem de treinos
+   - Elaboração de planos de treino semanais
+   - Atribuição de treinos a alunos específicos
+
+4. **Análise de Desempenho**
+   - Visualização de métricas dos alunos
+   - Acompanhamento de assiduidade
+   - Análise de evolução de cargas e repetições
+   - Geração de relatórios
+
+## Controle de Acesso
+
+O sistema implementa controle de acesso baseado em funções (RBAC) para garantir que cada tipo de usuário tenha acesso apenas às funcionalidades pertinentes ao seu perfil:
+
+```java
+// Exemplo simplificado de controle de acesso
+@PreAuthorize("hasRole('PERSONAL')")
+@GetMapping("/students")
+public ResponseEntity<List<UserDTO>> getStudents() {
+    // Implementação...
+}
+
+@PreAuthorize("hasRole('ALUNO')")
+@GetMapping("/my-trainings")
+public ResponseEntity<List<TrainingDTO>> getMyTrainings() {
+    // Implementação...
+}
+```
+
+Além disso, o sistema implementa validações adicionais para garantir que um personal trainer só possa acessar dados de seus próprios alunos:
+
+```java
+// Exemplo de validação de relacionamento
+public boolean canAccessStudentData(Long personalId, Long studentId) {
+    return personalStudentRepository.existsByPersonalIdAndStudentId(personalId, studentId);
+}
+```
+
+## Registro de Usuários
+
+O processo de registro de usuários inclui a definição do tipo de usuário:
+
+```java
+public class RegisterRequest {
+    private String name;
+    private String email;
+    private String password;
+    private EnumUserType userType;
+    private String requestLocation; // "WEB" ou "APP"
+    private boolean confirmed;
+    
+    // Getters e setters...
+}
+```
+
+Para registros via web, o campo `userType` é automaticamente definido como `PERSONAL`, enquanto para registros via aplicativo móvel, o padrão é `ALUNO`.
+
+## Autenticação e Autorização
+
+O sistema utiliza JWT (JSON Web Tokens) para autenticação, incluindo o tipo de usuário nas claims do token:
+
+```java
+private String generateToken(User user) {
+    Map<String, Object> claims = new HashMap<>();
+    claims.put("userId", user.getId());
+    claims.put("userType", user.getUserType().name());
+    
+    // Geração do token...
+}
+```
+
+Estas claims são utilizadas pelo sistema de autorização para determinar quais endpoints e recursos o usuário pode acessar.
+
+## Considerações de UI/UX
+
+A interface do usuário é adaptada de acordo com o tipo de usuário:
+
+- **Aluno**: Interface focada em execução de treinos, com fluxos simplificados e visualização de progresso
+- **Personal**: Interface com ferramentas de criação e gerenciamento, dashboards analíticos e visão consolidada de alunos
+
+## Evolução Futura
+
+O sistema foi projetado para permitir a adição de novos tipos de usuário no futuro, como:
+
+- **Administrador**: Para gerenciamento da plataforma
+- **Nutricionista**: Para integração com planos alimentares
+- **Academia**: Para gerenciamento de múltiplos personals e alunos

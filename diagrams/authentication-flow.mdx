@@ -1,0 +1,310 @@
+---
+title: 'Fluxo de Autenticação'
+description: 'Diagrama detalhado do fluxo de autenticação do FitLocus'
+---
+
+# Fluxo de Autenticação
+
+Este diagrama ilustra o processo completo de autenticação no ecossistema FitLocus, incluindo registro, login e renovação de tokens.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      O sistema de autenticação do FitLocus utiliza:
+    </p>
+    <ul>
+      <li>Autenticação baseada em JWT (JSON Web Tokens)</li>
+      <li>Integração com Firebase Authentication</li>
+      <li>Controle de acesso baseado em tipos de usuário</li>
+      <li>Renovação automática de tokens</li>
+    </ul>
+  </div>
+</Frame>
+
+## Diagrama de Fluxo de Autenticação
+
+<Frame>
+  <img src="/images/diagrams/authentication-flow.png" alt="Fluxo de Autenticação do FitLocus" />
+</Frame>
+
+## Processo de Registro
+
+O processo de registro de usuários no FitLocus segue estas etapas:
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant F as Frontend
+    participant A as Auth Service
+    participant DB as Banco de Dados
+    participant E as Email Service
+
+    U->>F: Preenche formulário de registro
+    F->>F: Valida dados de entrada
+    F->>A: POST /auth/register
+    A->>A: Valida dados
+    A->>DB: Verifica se email já existe
+    DB-->>A: Resposta
+    
+    alt Email já existe
+        A-->>F: 400 Bad Request
+        F-->>U: Exibe erro "Email já cadastrado"
+    else Email disponível
+        A->>DB: Cria novo usuário
+        A->>E: Envia email de confirmação
+        A-->>F: 201 Created (UserDTO + token)
+        F->>F: Armazena token JWT
+        F-->>U: Redireciona para dashboard
+    end
+```
+
+### Detalhes do Processo
+
+1. **Validação de Dados**:
+   - Email válido e único
+   - Senha com pelo menos 8 caracteres, incluindo letras e números
+   - Nome completo obrigatório
+
+2. **Criação de Conta**:
+   - Geração de ID único
+   - Hash da senha com BCrypt
+   - Definição do tipo de usuário (ALUNO/PERSONAL)
+   - Armazenamento no banco de dados
+
+3. **Confirmação de Email**:
+   - Geração de token de confirmação
+   - Envio de email com link de confirmação
+   - Expiração do token após 24 horas
+
+## Processo de Login
+
+O processo de login no FitLocus segue estas etapas:
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant F as Frontend
+    participant A as Auth Service
+    participant DB as Banco de Dados
+
+    U->>F: Insere email e senha
+    F->>A: POST /auth/login
+    A->>DB: Busca usuário por email
+    DB-->>A: Dados do usuário
+    
+    alt Usuário não encontrado
+        A-->>F: 401 Unauthorized
+        F-->>U: Exibe erro "Credenciais inválidas"
+    else Usuário encontrado
+        A->>A: Verifica senha com BCrypt
+        
+        alt Senha incorreta
+            A-->>F: 401 Unauthorized
+            F-->>U: Exibe erro "Credenciais inválidas"
+        else Senha correta
+            alt Conta não confirmada
+                A-->>F: 403 Forbidden
+                F-->>U: Exibe erro "Confirme seu email"
+            else Conta confirmada
+                A->>A: Gera token JWT
+                A-->>F: 200 OK (UserDTO + token)
+                F->>F: Armazena token JWT
+                F-->>U: Redireciona para dashboard
+            end
+        end
+    end
+```
+
+### Detalhes do Token JWT
+
+O token JWT gerado pelo FitLocus contém as seguintes informações:
+
+```json
+{
+  "sub": "user_id",
+  "name": "Nome do Usuário",
+  "email": "usuario@exemplo.com",
+  "userType": "PERSONAL",
+  "iat": 1619712000,
+  "exp": 1619798400
+}
+```
+
+- **sub**: ID do usuário
+- **name**: Nome completo do usuário
+- **email**: Email do usuário
+- **userType**: Tipo de usuário (ALUNO/PERSONAL)
+- **iat**: Timestamp de emissão do token
+- **exp**: Timestamp de expiração do token (24 horas após emissão)
+
+## Integração com Firebase
+
+O FitLocus também suporta autenticação via Firebase, seguindo este fluxo:
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant F as Frontend
+    participant FB as Firebase Auth
+    participant A as Auth Service
+    participant DB as Banco de Dados
+
+    U->>F: Clica em "Login com Google"
+    F->>FB: Inicia fluxo OAuth
+    FB->>U: Redireciona para login Google
+    U->>FB: Autentica com Google
+    FB-->>F: Retorna Firebase ID Token
+    F->>A: POST /auth/firebase-login (token)
+    
+    A->>FB: Verifica token
+    FB-->>A: Dados do usuário
+    
+    A->>DB: Busca usuário por email
+    
+    alt Usuário não encontrado
+        A->>DB: Cria novo usuário
+    end
+    
+    A->>A: Gera token JWT
+    A-->>F: 200 OK (UserDTO + token)
+    F->>F: Armazena token JWT
+    F-->>U: Redireciona para dashboard
+```
+
+## Renovação de Token
+
+O processo de renovação automática de tokens segue estas etapas:
+
+```mermaid
+sequenceDiagram
+    participant F as Frontend
+    participant A as Auth Service
+    
+    F->>F: Detecta token próximo da expiração
+    F->>A: POST /auth/refresh-token
+    
+    alt Token válido
+        A->>A: Gera novo token JWT
+        A-->>F: 200 OK (novo token)
+        F->>F: Atualiza token armazenado
+    else Token inválido/expirado
+        A-->>F: 401 Unauthorized
+        F->>F: Redireciona para login
+    end
+```
+
+## Logout
+
+O processo de logout segue estas etapas:
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant F as Frontend
+    participant A as Auth Service
+    
+    U->>F: Clica em "Logout"
+    F->>A: POST /auth/logout
+    A-->>F: 200 OK
+    F->>F: Remove token JWT
+    F-->>U: Redireciona para página inicial
+```
+
+## Controle de Acesso
+
+O FitLocus implementa controle de acesso baseado em tipos de usuário:
+
+```mermaid
+flowchart TD
+    A[Requisição] --> B{Token JWT válido?}
+    B -->|Não| C[401 Unauthorized]
+    B -->|Sim| D{Verificar permissões}
+    
+    D -->|ALUNO| E[Acesso a recursos de aluno]
+    D -->|PERSONAL| F[Acesso a recursos de personal]
+    
+    E --> G{Recurso permitido?}
+    F --> G
+    
+    G -->|Não| H[403 Forbidden]
+    G -->|Sim| I[Acesso concedido]
+```
+
+### Permissões por Tipo de Usuário
+
+| Recurso | ALUNO | PERSONAL |
+|---------|-------|----------|
+| Ver próprio perfil | ✅ | ✅ |
+| Editar próprio perfil | ✅ | ✅ |
+| Ver treinos atribuídos | ✅ | ✅ |
+| Criar treinos | ❌ | ✅ |
+| Atribuir treinos | ❌ | ✅ |
+| Ver lista de alunos | ❌ | ✅ |
+| Gerenciar exercícios | ❌ | ✅ |
+
+## Considerações de Segurança
+
+1. **Proteção contra CSRF**:
+   - Tokens JWT são armazenados em localStorage
+   - Implementação de CORS para restringir origens
+
+2. **Proteção contra XSS**:
+   - Sanitização de inputs
+   - Content Security Policy (CSP)
+
+3. **Rate Limiting**:
+   - Limite de 10 tentativas de login por minuto
+   - Bloqueio temporário após múltiplas falhas
+
+4. **Monitoramento**:
+   - Logging de tentativas de login
+   - Alertas para atividades suspeitas
+
+## Implementação no Frontend
+
+No frontend, a autenticação é gerenciada através de um contexto de autenticação:
+
+```tsx
+// src/contexts/AuthContext.tsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
+
+interface AuthContextData {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  logout: () => void;
+  isAuthenticated: boolean;
+}
+
+const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+
+export const AuthProvider: React.FC = ({ children }) => {
+  // Implementação omitida para brevidade
+};
+
+export const useAuth = () => useContext(AuthContext);
+```
+
+## Implementação no Backend
+
+No backend, a autenticação é gerenciada através de filtros JWT:
+
+```java
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private final JwtTokenProvider tokenProvider;
+    private final UserDetailsService userDetailsService;
+    
+    // Implementação omitida para brevidade
+}
+```
+
+## Recursos Adicionais
+
+- [Documentação da API de Autenticação](/api-reference/authentication)
+- [Tutorial de Implementação de Autenticação](/tutorials/implement-authentication)
+- [Exemplos de Código de Integração](/integration/authentication)

@@ -1,0 +1,1038 @@
+---
+title: 'Criação e Gerenciamento de Exercícios'
+description: 'Endpoints para criação e gerenciamento de exercícios no FitLocus'
+---
+
+# Criação e Gerenciamento de Exercícios
+
+Esta seção detalha os endpoints para criação, atualização, remoção e gerenciamento de exercícios na plataforma FitLocus.
+
+## Criar Exercício
+
+### Endpoint
+
+```
+POST /exercises
+```
+
+Este endpoint permite a criação de um novo exercício com upload opcional de imagem demonstrativa.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | multipart/form-data | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+A requisição deve ser enviada como `multipart/form-data` com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| exercise | JSON | Sim | Objeto JSON com os dados do exercício |
+| file | file | Não | Arquivo de imagem demonstrativa (JPG, PNG ou GIF, máx. 5MB) |
+
+O objeto JSON `exercise` deve conter:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| name | string | Sim | Nome do exercício |
+| description | string | Sim | Descrição detalhada do exercício |
+| category | string | Sim | Categoria principal (PEITO, COSTAS, OMBRO, etc.) |
+| isPublic | boolean | Não | Se o exercício é público (default: false) |
+| difficulty | string | Não | Nível de dificuldade (INICIANTE, INTERMEDIARIO, AVANCADO) |
+| equipment | string | Não | Equipamento necessário (BARRA, HALTERES, MAQUINA, etc.) |
+| videoUrl | string | Não | URL de vídeo demonstrativo (YouTube, Vimeo, etc.) |
+| instructions | array | Não | Lista de instruções passo a passo |
+| muscleGroups | array | Não | Lista de grupos musculares secundários envolvidos |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/exercises' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'exercise={
+    "name": "Supino Inclinado",
+    "description": "Exercício para desenvolvimento da parte superior do peitoral",
+    "category": "PEITO",
+    "isPublic": true,
+    "difficulty": "INTERMEDIARIO",
+    "equipment": "BARRA",
+    "videoUrl": "https://www.youtube.com/watch?v=example",
+    "instructions": [
+      "Deite-se no banco inclinado",
+      "Segure a barra com as mãos afastadas",
+      "Desça a barra até o peito",
+      "Empurre a barra para cima"
+    ],
+    "muscleGroups": ["PEITO", "TRICEPS", "OMBRO"]
+  }' \
+  -F 'file=@/caminho/para/imagem.jpg'
+```
+
+### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "id": 123,
+  "name": "Supino Inclinado",
+  "description": "Exercício para desenvolvimento da parte superior do peitoral",
+  "category": "PEITO",
+  "imageUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/exercises/123.jpg",
+  "createdBy": 456,
+  "createdAt": "2023-05-20T15:30:00Z",
+  "updatedAt": "2023-05-20T15:30:00Z",
+  "isPublic": true,
+  "difficulty": "INTERMEDIARIO",
+  "equipment": "BARRA",
+  "videoUrl": "https://www.youtube.com/watch?v=example",
+  "instructions": [
+    "Deite-se no banco inclinado",
+    "Segure a barra com as mãos afastadas",
+    "Desça a barra até o peito",
+    "Empurre a barra para cima"
+  ],
+  "muscleGroups": ["PEITO", "TRICEPS", "OMBRO"]
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "name",
+      "message": "Nome não pode estar vazio"
+    },
+    {
+      "field": "category",
+      "message": "Categoria inválida"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Arquivo inválido. Apenas imagens JPG, PNG ou GIF são permitidas",
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Alunos só podem criar exercícios privados",
+  "success": false
+}
+```
+
+## Obter Exercício
+
+### Endpoint
+
+```
+GET /exercises/{id}
+```
+
+Este endpoint retorna os detalhes de um exercício específico.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do exercício |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário (opcional para exercícios públicos) |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises/123' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 123,
+  "name": "Supino Inclinado",
+  "description": "Exercício para desenvolvimento da parte superior do peitoral",
+  "category": "PEITO",
+  "imageUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/exercises/123.jpg",
+  "createdBy": 456,
+  "createdAt": "2023-05-20T15:30:00Z",
+  "updatedAt": "2023-05-20T15:30:00Z",
+  "isPublic": true,
+  "difficulty": "INTERMEDIARIO",
+  "equipment": "BARRA",
+  "videoUrl": "https://www.youtube.com/watch?v=example",
+  "instructions": [
+    "Deite-se no banco inclinado",
+    "Segure a barra com as mãos afastadas",
+    "Desça a barra até o peito",
+    "Empurre a barra para cima"
+  ],
+  "muscleGroups": ["PEITO", "TRICEPS", "OMBRO"]
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Acesso negado",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Exercício não encontrado",
+  "success": false
+}
+```
+
+## Atualizar Exercício
+
+### Endpoint
+
+```
+PUT /exercises/{id}
+```
+
+Este endpoint permite atualizar um exercício existente com upload opcional de nova imagem demonstrativa.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do exercício |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+| Content-Type | multipart/form-data | Tipo de conteúdo da requisição |
+
+### Parâmetros da Requisição
+
+A requisição deve ser enviada como `multipart/form-data` com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| exercise | JSON | Sim | Objeto JSON com os dados atualizados do exercício |
+| file | file | Não | Nova imagem demonstrativa (JPG, PNG ou GIF, máx. 5MB) |
+
+O objeto JSON `exercise` segue a mesma estrutura da criação de exercício.
+
+### Exemplo de Requisição
+
+```bash
+curl -X PUT \
+  'http://localhost:8080/api/exercises/123' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'exercise={
+    "name": "Supino Inclinado com Halteres",
+    "description": "Exercício para desenvolvimento da parte superior do peitoral utilizando halteres",
+    "category": "PEITO",
+    "isPublic": true,
+    "difficulty": "INTERMEDIARIO",
+    "equipment": "HALTERES",
+    "videoUrl": "https://www.youtube.com/watch?v=example-updated",
+    "instructions": [
+      "Deite-se no banco inclinado",
+      "Segure os halteres ao lado do peito",
+      "Empurre os halteres para cima",
+      "Desça os halteres de volta ao lado do peito"
+    ],
+    "muscleGroups": ["PEITO", "TRICEPS", "OMBRO"]
+  }' \
+  -F 'file=@/caminho/para/nova-imagem.jpg'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": 123,
+  "name": "Supino Inclinado com Halteres",
+  "description": "Exercício para desenvolvimento da parte superior do peitoral utilizando halteres",
+  "category": "PEITO",
+  "imageUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/exercises/123.jpg?v=1684598800",
+  "createdBy": 456,
+  "createdAt": "2023-05-20T15:30:00Z",
+  "updatedAt": "2023-05-20T16:00:00Z",
+  "isPublic": true,
+  "difficulty": "INTERMEDIARIO",
+  "equipment": "HALTERES",
+  "videoUrl": "https://www.youtube.com/watch?v=example-updated",
+  "instructions": [
+    "Deite-se no banco inclinado",
+    "Segure os halteres ao lado do peito",
+    "Empurre os halteres para cima",
+    "Desça os halteres de volta ao lado do peito"
+  ],
+  "muscleGroups": ["PEITO", "TRICEPS", "OMBRO"]
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "name",
+      "message": "Nome não pode estar vazio"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas o criador pode atualizar este exercício",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Exercício não encontrado",
+  "success": false
+}
+```
+
+## Remover Exercício
+
+### Endpoint
+
+```
+DELETE /exercises/{id}
+```
+
+Este endpoint permite remover um exercício existente.
+
+### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | number | ID do exercício |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X DELETE \
+  'http://localhost:8080/api/exercises/123' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 204 No Content
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 403 Forbidden
+
+```json
+{
+  "message": "Apenas o criador pode remover este exercício",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Exercício não encontrado",
+  "success": false
+}
+```
+
+**Código:** 409 Conflict
+
+```json
+{
+  "message": "Não é possível remover este exercício pois ele está sendo utilizado em treinos",
+  "success": false
+}
+```
+
+## Listar Exercícios
+
+### Endpoint
+
+```
+GET /exercises
+```
+
+Este endpoint retorna uma lista paginada de exercícios com filtros opcionais.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| category | string | Não | Filtrar por categoria |
+| name | string | Não | Filtrar por nome (busca parcial) |
+| createdBy | number | Não | Filtrar por criador |
+| isPublic | boolean | Não | Filtrar por visibilidade |
+| difficulty | string | Não | Filtrar por dificuldade |
+| equipment | string | Não | Filtrar por equipamento |
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: name,asc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário (opcional para exercícios públicos) |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises?category=PEITO&isPublic=true&page=0&size=10&sort=name,asc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 123,
+      "name": "Supino Inclinado",
+      "description": "Exercício para desenvolvimento da parte superior do peitoral",
+      "category": "PEITO",
+      "imageUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/exercises/123.jpg",
+      "createdBy": 456,
+      "createdAt": "2023-05-20T15:30:00Z",
+      "updatedAt": "2023-05-20T15:30:00Z",
+      "isPublic": true,
+      "difficulty": "INTERMEDIARIO",
+      "equipment": "BARRA"
+    },
+    {
+      "id": 124,
+      "name": "Supino Reto",
+      "description": "Exercício para desenvolvimento do peitoral",
+      "category": "PEITO",
+      "imageUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/exercises/124.jpg",
+      "createdBy": 456,
+      "createdAt": "2023-05-19T14:20:00Z",
+      "updatedAt": "2023-05-19T14:20:00Z",
+      "isPublic": true,
+      "difficulty": "INTERMEDIARIO",
+      "equipment": "BARRA"
+    }
+    // Mais exercícios...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 5,
+  "totalElements": 42,
+  "last": false,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 10,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Parâmetro inválido: category",
+  "success": false
+}
+```
+
+## Listar Meus Exercícios
+
+### Endpoint
+
+```
+GET /exercises/my-exercises
+```
+
+Este endpoint retorna uma lista paginada de exercícios criados pelo usuário autenticado.
+
+### Parâmetros de Consulta
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| page | number | Não | Número da página (default: 0) |
+| size | number | Não | Tamanho da página (default: 20) |
+| sort | string | Não | Campo e direção de ordenação (ex: name,asc) |
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises/my-exercises?page=0&size=10&sort=createdAt,desc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "content": [
+    {
+      "id": 123,
+      "name": "Supino Inclinado",
+      "description": "Exercício para desenvolvimento da parte superior do peitoral",
+      "category": "PEITO",
+      "imageUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/exercises/123.jpg",
+      "createdBy": 456,
+      "createdAt": "2023-05-20T15:30:00Z",
+      "updatedAt": "2023-05-20T15:30:00Z",
+      "isPublic": true,
+      "difficulty": "INTERMEDIARIO",
+      "equipment": "BARRA"
+    },
+    // Mais exercícios...
+  ],
+  "pageable": {
+    "sort": {
+      "sorted": true,
+      "unsorted": false,
+      "empty": false
+    },
+    "pageNumber": 0,
+    "pageSize": 10,
+    "offset": 0,
+    "paged": true,
+    "unpaged": false
+  },
+  "totalPages": 3,
+  "totalElements": 25,
+  "last": false,
+  "first": true,
+  "sort": {
+    "sorted": true,
+    "unsorted": false,
+    "empty": false
+  },
+  "number": 0,
+  "numberOfElements": 10,
+  "size": 10,
+  "empty": false
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Listar Categorias de Exercícios
+
+### Endpoint
+
+```
+GET /exercises/categories
+```
+
+Este endpoint retorna a lista de todas as categorias de exercícios disponíveis.
+
+### Exemplo de Requisição
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises/categories'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+[
+  "PEITO",
+  "COSTAS",
+  "OMBRO",
+  "BICEPS",
+  "TRICEPS",
+  "PERNAS",
+  "ABDOMEN",
+  "GLUTEOS",
+  "CARDIO",
+  "OUTRO"
+]
+```
+
+## Implementação no Frontend
+
+### Componente de Criação de Exercício
+
+```tsx
+// Exemplo de componente de criação de exercício em React
+import React, { useState } from 'react';
+import axios from 'axios';
+
+const ExerciseForm = () => {
+  const [exercise, setExercise] = useState({
+    name: '',
+    description: '',
+    category: '',
+    isPublic: false,
+    difficulty: '',
+    equipment: '',
+    videoUrl: '',
+    instructions: [''],
+    muscleGroups: []
+  });
+  
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setExercise(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+  
+  const handleInstructionChange = (index, value) => {
+    const newInstructions = [...exercise.instructions];
+    newInstructions[index] = value;
+    setExercise(prev => ({
+      ...prev,
+      instructions: newInstructions
+    }));
+  };
+  
+  const addInstruction = () => {
+    setExercise(prev => ({
+      ...prev,
+      instructions: [...prev.instructions, '']
+    }));
+  };
+  
+  const removeInstruction = (index) => {
+    const newInstructions = [...exercise.instructions];
+    newInstructions.splice(index, 1);
+    setExercise(prev => ({
+      ...prev,
+      instructions: newInstructions
+    }));
+  };
+  
+  const handleMuscleGroupChange = (e) => {
+    const { value, checked } = e.target;
+    setExercise(prev => ({
+      ...prev,
+      muscleGroups: checked
+        ? [...prev.muscleGroups, value]
+        : prev.muscleGroups.filter(group => group !== value)
+    }));
+  };
+  
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    
+    // Validação básica do arquivo
+    if (selectedFile) {
+      if (!['image/jpeg', 'image/png', 'image/gif'].includes(selectedFile.type)) {
+        setError('Formato de arquivo inválido. Use JPG, PNG ou GIF.');
+        return;
+      }
+      
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        setError('Arquivo muito grande. Tamanho máximo: 5MB.');
+        return;
+      }
+      
+      setFile(selectedFile);
+      setError(null);
+    }
+  };
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validação básica
+    if (!exercise.name || !exercise.description || !exercise.category) {
+      setError('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+    
+    const formData = new FormData();
+    
+    // Remover instruções vazias
+    const cleanedExercise = {
+      ...exercise,
+      instructions: exercise.instructions.filter(instruction => instruction.trim() !== '')
+    };
+    
+    formData.append('exercise', JSON.stringify(cleanedExercise));
+    if (file) {
+      formData.append('file', file);
+    }
+    
+    try {
+      const response = await axios.post('/exercises', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      setLoading(false);
+      setSuccess(true);
+      // Resetar formulário
+      setExercise({
+        name: '',
+        description: '',
+        category: '',
+        isPublic: false,
+        difficulty: '',
+        equipment: '',
+        videoUrl: '',
+        instructions: [''],
+        muscleGroups: []
+      });
+      setFile(null);
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.message || 'Erro ao criar exercício');
+    }
+  };
+  
+  return (
+    <div className="exercise-form">
+      <h2>Criar Novo Exercício</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">Exercício criado com sucesso!</div>}
+      
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Nome *</label>
+          <input
+            type="text"
+            name="name"
+            value={exercise.name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Descrição *</label>
+          <textarea
+            name="description"
+            value={exercise.description}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Categoria *</label>
+          <select
+            name="category"
+            value={exercise.category}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Selecione uma categoria</option>
+            <option value="PEITO">Peito</option>
+            <option value="COSTAS">Costas</option>
+            <option value="OMBRO">Ombro</option>
+            <option value="BICEPS">Bíceps</option>
+            <option value="TRICEPS">Tríceps</option>
+            <option value="PERNAS">Pernas</option>
+            <option value="ABDOMEN">Abdômen</option>
+            <option value="GLUTEOS">Glúteos</option>
+            <option value="CARDIO">Cardio</option>
+            <option value="OUTRO">Outro</option>
+          </select>
+        </div>
+        
+        <div className="form-group">
+          <label>Dificuldade</label>
+          <select
+            name="difficulty"
+            value={exercise.difficulty}
+            onChange={handleChange}
+          >
+            <option value="">Selecione a dificuldade</option>
+            <option value="INICIANTE">Iniciante</option>
+            <option value="INTERMEDIARIO">Intermediário</option>
+            <option value="AVANCADO">Avançado</option>
+          </select>
+        </div>
+        
+        <div className="form-group">
+          <label>Equipamento</label>
+          <select
+            name="equipment"
+            value={exercise.equipment}
+            onChange={handleChange}
+          >
+            <option value="">Selecione o equipamento</option>
+            <option value="BARRA">Barra</option>
+            <option value="HALTERES">Halteres</option>
+            <option value="MAQUINA">Máquina</option>
+            <option value="CABO">Cabo</option>
+            <option value="PESO_CORPORAL">Peso Corporal</option>
+            <option value="OUTRO">Outro</option>
+          </select>
+        </div>
+        
+        <div className="form-group">
+          <label>URL do Vídeo</label>
+          <input
+            type="url"
+            name="videoUrl"
+            value={exercise.videoUrl}
+            onChange={handleChange}
+            placeholder="https://www.youtube.com/watch?v=exemplo"
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Imagem Demonstrativa</label>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/gif"
+            onChange={handleFileChange}
+          />
+          <small>Formatos aceitos: JPG, PNG, GIF. Tamanho máximo: 5MB.</small>
+        </div>
+        
+        <div className="form-group">
+          <label>Instruções</label>
+          {exercise.instructions.map((instruction, index) => (
+            <div key={index} className="instruction-row">
+              <input
+                type="text"
+                value={instruction}
+                onChange={(e) => handleInstructionChange(index, e.target.value)}
+                placeholder={`Passo ${index + 1}`}
+              />
+              <button
+                type="button"
+                onClick={() => removeInstruction(index)}
+                disabled={exercise.instructions.length === 1}
+              >
+                Remover
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={addInstruction}>
+            Adicionar Instrução
+          </button>
+        </div>
+        
+        <div className="form-group">
+          <label>Grupos Musculares Secundários</label>
+          <div className="checkbox-group">
+            {["PEITO", "COSTAS", "OMBRO", "BICEPS", "TRICEPS", "PERNAS", "ABDOMEN", "GLUTEOS"].map(group => (
+              <label key={group} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  value={group}
+                  checked={exercise.muscleGroups.includes(group)}
+                  onChange={handleMuscleGroupChange}
+                />
+                {group.charAt(0) + group.slice(1).toLowerCase()}
+              </label>
+            ))}
+          </div>
+        </div>
+        
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              name="isPublic"
+              checked={exercise.isPublic}
+              onChange={handleChange}
+            />
+            Tornar exercício público
+          </label>
+          <small>Exercícios públicos podem ser vistos e utilizados por outros usuários.</small>
+        </div>
+        
+        <button type="submit" disabled={loading}>
+          {loading ? 'Criando...' : 'Criar Exercício'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default ExerciseForm;
+```
+
+## Considerações de Design
+
+A interface de criação e gerenciamento de exercícios do FitLocus segue as diretrizes de design da plataforma:
+
+- **Cores**: Fundo escuro (#202020), elementos de destaque em verde (#B4ED00), texto em branco (#F9F9F9)
+- **Tipografia**: Hanken Grotesk para texto e SUPERINE para títulos
+- **Layout**: Design minimalista com espaçamento generoso e hierarquia clara
+- **Componentes**: Campos de formulário com bordas arredondadas, botões com feedback visual ao interagir
+
+Para mais detalhes sobre o design, consulte as [diretrizes de marca](/design/brand-guidelines).
+
+## Considerações de Segurança
+
+1. **Validação de Dados**: Todos os dados de entrada são validados tanto no frontend quanto no backend para prevenir injeção de dados maliciosos.
+
+2. **Controle de Acesso**: Verificações rigorosas garantem que um usuário só possa acessar e modificar seus próprios exercícios ou exercícios públicos.
+
+3. **Validação de Arquivos**: Uploads de imagem são validados quanto ao tipo, tamanho e conteúdo para prevenir ataques.
+
+4. **Sanitização de Dados**: Todos os dados de entrada são sanitizados antes de serem armazenados ou exibidos.
+
+5. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS para proteger dados sensíveis durante a transmissão.
+
+## Troubleshooting
+
+### Problemas Comuns
+
+1. **"Formato de arquivo inválido"**: Certifique-se de que a imagem está em um dos formatos permitidos (JPG, PNG, GIF).
+
+2. **"Tamanho máximo de arquivo excedido"**: Reduza o tamanho da imagem para menos de 5MB.
+
+3. **"Acesso negado"**: Verifique se você está tentando atualizar ou remover um exercício que você criou.
+
+4. **"Não é possível remover este exercício"**: O exercício está sendo utilizado em treinos. Remova-o dos treinos primeiro.
+
+### Depuração
+
+Para depurar problemas com exercícios:
+
+1. Verifique os logs do console para mensagens de erro detalhadas
+2. Utilize ferramentas como o Postman para testar os endpoints diretamente
+3. Verifique se o token JWT está sendo enviado corretamente no cabeçalho Authorization
+4. Confirme que os dados enviados estão no formato correto e dentro dos limites permitidos

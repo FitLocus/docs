@@ -1,0 +1,223 @@
+---
+title: 'App Frontend'
+description: 'Arquitetura e implementação do aplicativo móvel FitLocus'
+---
+
+# App Frontend do FitLocus
+
+O aplicativo móvel do FitLocus é desenvolvido com React Native e Capacitor, oferecendo uma experiência nativa para usuários iOS e Android. O app é o principal ponto de interação para alunos e personal trainers no ecossistema FitLocus.
+
+## Tecnologias Utilizadas
+
+- **Framework**: React Native
+- **Adaptador Nativo**: Capacitor
+- **Gerenciamento de Estado**: React Context API
+- **Roteamento**: React Navigation
+- **Requisições HTTP**: Axios
+- **Estilização**: Styled Components
+- **Formulários**: React Hook Form
+- **Validação**: Yup
+- **Autenticação**: JWT + AsyncStorage
+- **Animações**: React Native Reanimated
+
+## Estrutura do Projeto
+
+```
+src/
+├── App.tsx                # Componente raiz da aplicação
+├── components/            # Componentes reutilizáveis
+│   ├── common/            # Componentes genéricos (botões, inputs, etc.)
+│   ├── exercises/         # Componentes relacionados a exercícios
+│   ├── trainings/         # Componentes relacionados a treinos
+│   └── ui/                # Componentes de interface do usuário
+├── contexts/              # Contextos React para gerenciamento de estado
+│   ├── AuthContext.tsx    # Contexto de autenticação
+│   ├── ExerciseContext.tsx # Contexto de exercícios
+│   └── TrainingContext.tsx # Contexto de treinos
+├── hooks/                 # Hooks personalizados
+│   ├── useAuth.tsx        # Hook para autenticação
+│   ├── useExercises.tsx   # Hook para gerenciamento de exercícios
+│   └── useTrainings.tsx   # Hook para gerenciamento de treinos
+├── navigation/            # Configuração de navegação
+│   ├── AppNavigator.tsx   # Navegador principal da aplicação
+│   ├── AuthNavigator.tsx  # Navegador para fluxo de autenticação
+│   └── TabNavigator.tsx   # Navegador de abas para usuários autenticados
+├── screens/               # Telas da aplicação
+│   ├── auth/              # Telas de autenticação (login, registro)
+│   ├── exercises/         # Telas relacionadas a exercícios
+│   ├── home/              # Tela inicial e dashboard
+│   ├── profile/           # Telas de perfil de usuário
+│   └── trainings/         # Telas relacionadas a treinos
+├── services/              # Serviços para comunicação com a API
+│   ├── api.ts             # Configuração do cliente Axios
+│   ├── auth.service.ts    # Serviço de autenticação
+│   ├── exercise.service.ts # Serviço de exercícios
+│   └── training.service.ts # Serviço de treinos
+├── styles/                # Estilos globais e temas
+│   ├── colors.ts          # Paleta de cores
+│   ├── fonts.ts           # Configuração de fontes
+│   └── theme.ts           # Tema global da aplicação
+├── types/                 # Definições de tipos TypeScript
+│   ├── auth.types.ts      # Tipos relacionados à autenticação
+│   ├── exercise.types.ts  # Tipos relacionados a exercícios
+│   └── training.types.ts  # Tipos relacionados a treinos
+└── utils/                 # Funções utilitárias
+    ├── auth.utils.ts      # Utilitários de autenticação
+    ├── date.utils.ts      # Utilitários para manipulação de datas
+    └── storage.utils.ts   # Utilitários para armazenamento local
+```
+
+## Fluxos Principais
+
+### Autenticação
+
+O aplicativo implementa um sistema de autenticação completo:
+
+1. **Login**: Autenticação com email/senha ou Google
+2. **Registro**: Criação de nova conta com validação de dados
+3. **Recuperação de Senha**: Fluxo para redefinição de senha
+4. **Persistência de Sessão**: Armazenamento de token JWT em AsyncStorage
+5. **Proteção de Rotas**: Redirecionamento para login quando não autenticado
+
+### Exercícios
+
+Gerenciamento de exercícios físicos:
+
+1. **Listagem**: Visualização de exercícios disponíveis
+2. **Detalhes**: Informações detalhadas sobre cada exercício
+3. **Execução**: Interface para execução de exercícios com contagem de séries
+4. **Histórico**: Registro de execuções anteriores
+5. **Recordes**: Acompanhamento de recordes pessoais
+
+### Treinos
+
+Gerenciamento de sessões de treino:
+
+1. **Listagem**: Visualização de treinos disponíveis
+2. **Detalhes**: Informações sobre exercícios incluídos no treino
+3. **Execução**: Interface para realização do treino com progresso
+4. **Histórico**: Registro de treinos realizados
+5. **Planos**: Visualização de planos de treino semanais
+
+### Perfil
+
+Gerenciamento de perfil de usuário:
+
+1. **Informações Pessoais**: Visualização e edição de dados do usuário
+2. **Métricas**: Acompanhamento de métricas como hidratação, passos e sono
+3. **Assinatura**: Gerenciamento de plano de assinatura
+4. **Preferências**: Configurações do aplicativo
+
+## Componentes de UI
+
+O aplicativo utiliza uma biblioteca de componentes personalizada que segue as diretrizes de design do FitLocus:
+
+- **Botões**: Primário, secundário, terciário e ícone
+- **Inputs**: Texto, número, seleção, data e hora
+- **Cards**: Exercício, treino, métrica e progresso
+- **Modais**: Confirmação, alerta e formulário
+- **Navegação**: Barra inferior, cabeçalho e menu lateral
+
+## Integração com API
+
+A comunicação com o backend é realizada através de serviços que utilizam Axios:
+
+```typescript
+// Exemplo de serviço de autenticação
+export const authService = {
+  login: async (credentials: LoginCredentials) => {
+    const response = await api.post('/auth/login', credentials);
+    return response.data;
+  },
+  
+  register: async (userData: RegisterData) => {
+    const response = await api.post('/auth/register', userData);
+    return response.data;
+  },
+  
+  // Outros métodos...
+};
+```
+
+## Gerenciamento de Estado
+
+O aplicativo utiliza React Context API para gerenciamento de estado global:
+
+```typescript
+// Exemplo de contexto de autenticação
+export const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+
+export const AuthProvider: React.FC = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Métodos de autenticação...
+  
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+```
+
+## Navegação
+
+A navegação é implementada com React Navigation, com diferentes navegadores para diferentes estados de autenticação:
+
+```typescript
+// Exemplo de navegador principal
+export const AppNavigator = () => {
+  const { user } = useAuth();
+  
+  return (
+    <NavigationContainer>
+      {user ? <TabNavigator /> : <AuthNavigator />}
+    </NavigationContainer>
+  );
+};
+```
+
+## Design System
+
+O aplicativo segue um design system consistente com as seguintes características:
+
+- **Cores**: Paleta baseada em #202020 (fundo), #B4ED00 (acento) e #F9F9F9 (texto)
+- **Tipografia**: Hanken Grotesk como fonte principal e SUPERINE para títulos
+- **Espaçamento**: Sistema de grid com base em múltiplos de 4px
+- **Bordas**: Cantos arredondados com raio de 8px
+- **Sombras**: Sombras sutis para elementos elevados
+
+Para mais detalhes sobre o design system, consulte a [documentação de design](/design/brand-guidelines).
+
+## Testes
+
+O aplicativo inclui diferentes níveis de testes:
+
+- **Testes Unitários**: Jest para funções e hooks
+- **Testes de Componentes**: React Testing Library
+- **Testes E2E**: Detox para testes de integração
+
+## Ambiente de Desenvolvimento
+
+Para configurar o ambiente de desenvolvimento:
+
+```bash
+# Clone o repositório
+git clone https://github.com/logoscti/fitlocus-app-front.git
+
+# Entre no diretório
+cd fitlocus-app-front
+
+# Instale as dependências
+npm install
+
+# Execute o aplicativo
+npm run start
+
+# Para iOS
+npm run ios
+
+# Para Android
+npm run android
+```

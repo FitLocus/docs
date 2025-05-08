@@ -1,0 +1,1291 @@
+---
+title: 'Implementação de Autenticação'
+description: 'Tutorial passo a passo para implementar autenticação no FitLocus'
+---
+
+# Implementação de Autenticação
+
+Este tutorial guiará você através do processo de implementação do sistema de autenticação no ecossistema FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      Neste tutorial, você aprenderá a:
+    </p>
+    <ul>
+      <li>Implementar autenticação JWT no backend</li>
+      <li>Integrar com Firebase Authentication</li>
+      <li>Implementar login e registro no frontend</li>
+      <li>Gerenciar tokens e sessões de usuário</li>
+      <li>Implementar controle de acesso baseado em tipos de usuário</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos
+
+Antes de começar, certifique-se de ter:
+
+- Ambiente de desenvolvimento configurado ([Tutorial de Configuração](/tutorials/setup-environment))
+- Conhecimento básico de Java e Spring Security (backend)
+- Conhecimento básico de React/TypeScript (frontend)
+- Acesso aos repositórios do FitLocus
+- Projeto Firebase configurado (para autenticação Firebase)
+
+## 1. Implementação do Backend
+
+### 1.1 Configuração do Spring Security
+
+Primeiro, vamos configurar o Spring Security no backend:
+
+```java
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+public class SecurityConfig {
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthFilter,
+            AuthenticationProvider authenticationProvider,
+            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.authenticationProvider = authenticationProvider;
+        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/health").permitAll()
+                .requestMatchers("/api/public/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            .authenticationProvider(authenticationProvider)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+            );
+
+        return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:8100"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+        configuration.setAllowCredentials(true);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+}
+```
+
+### 1.2 Implementação do Filtro JWT
+
+Agora, vamos criar o filtro de autenticação JWT:
+
+```java
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+        final String authHeader = request.getHeader("Authorization");
+        final String jwt;
+        final String userEmail;
+        
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        
+        jwt = authHeader.substring(7);
+        
+        try {
+            userEmail = jwtService.extractUsername(jwt);
+            
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            }
+        } catch (Exception e) {
+            // Token inválido ou expirado, apenas continua o filtro
+        }
+        
+        filterChain.doFilter(request, response);
+    }
+}
+```
+
+### 1.3 Serviço JWT
+
+Vamos implementar o serviço que gerencia os tokens JWT:
+
+```java
+@Service
+public class JwtService {
+    @Value("${jwt.secret}")
+    private String secretKey;
+    
+    @Value("${jwt.expiration}")
+    private long jwtExpiration;
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    public String generateToken(UserDetails userDetails) {
+        return generateToken(new HashMap<>(), userDetails);
+    }
+
+    public String generateToken(
+            Map<String, Object> extraClaims,
+            UserDetails userDetails
+    ) {
+        User user = (User) userDetails;
+        
+        extraClaims.put("name", user.getName());
+        extraClaims.put("userType", user.getUserType());
+        
+        return Jwts
+                .builder()
+                .setClaims(extraClaims)
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+    }
+
+    private boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    private Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts
+                .parserBuilder()
+                .setSigningKey(getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private Key getSignInKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+}
+```
+
+### 1.4 Controlador de Autenticação
+
+Agora, vamos implementar o controlador de autenticação:
+
+```java
+@RestController
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthenticationController {
+    private final AuthenticationService authService;
+    private final FirebaseAuthService firebaseAuthService;
+
+    @PostMapping("/register")
+    public ResponseEntity<AuthenticationResponse> register(
+            @Valid @RequestBody RegisterRequest request
+    ) {
+        return ResponseEntity.ok(authService.register(request));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthenticationResponse> authenticate(
+            @Valid @RequestBody AuthenticationRequest request
+    ) {
+        return ResponseEntity.ok(authService.authenticate(request));
+    }
+
+    @PostMapping("/firebase-login")
+    public ResponseEntity<AuthenticationResponse> firebaseLogin(
+            @Valid @RequestBody FirebaseAuthRequest request
+    ) {
+        return ResponseEntity.ok(firebaseAuthService.authenticateWithFirebase(request.getIdToken()));
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<AuthenticationResponse> refreshToken(
+            HttpServletRequest request
+    ) {
+        String authHeader = request.getHeader("Authorization");
+        
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        String refreshToken = authHeader.substring(7);
+        AuthenticationResponse response = authService.refreshToken(refreshToken);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            HttpServletRequest request,
+            Authentication authentication
+    ) {
+        String authHeader = request.getHeader("Authorization");
+        
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String jwt = authHeader.substring(7);
+            authService.logout(jwt);
+        }
+        
+        SecurityContextHolder.clearContext();
+        return ResponseEntity.ok().build();
+    }
+}
+```
+
+### 1.5 Serviço de Autenticação
+
+Vamos implementar o serviço que gerencia a lógica de autenticação:
+
+```java
+@Service
+@RequiredArgsConstructor
+public class AuthenticationService {
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+    private final TokenBlacklistService tokenBlacklistService;
+
+    public AuthenticationResponse register(RegisterRequest request) {
+        // Verificar se o email já existe
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new EmailAlreadyExistsException("Email já cadastrado");
+        }
+        
+        // Criar usuário
+        User user = User.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .userType(request.getUserType())
+                .confirmed(request.getConfirmed() != null ? request.getConfirmed() : false)
+                .requestLocation(request.getRequestLocation())
+                .build();
+        
+        User savedUser = userRepository.save(user);
+        
+        // Gerar token JWT
+        String jwtToken = jwtService.generateToken(user);
+        
+        return AuthenticationResponse.builder()
+                .token(jwtToken)
+                .user(UserDTO.fromEntity(savedUser))
+                .userId(savedUser.getId())
+                .success(true)
+                .build();
+    }
+
+    public AuthenticationResponse authenticate(AuthenticationRequest request) {
+        // Autenticar usuário
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getPassword()
+                )
+        );
+        
+        // Buscar usuário
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+        
+        // Verificar se a conta está confirmada
+        if (!user.isConfirmed()) {
+            throw new AccountNotConfirmedException("Conta não confirmada. Verifique seu email.");
+        }
+        
+        // Gerar token JWT
+        String jwtToken = jwtService.generateToken(user);
+        
+        return AuthenticationResponse.builder()
+                .token(jwtToken)
+                .user(UserDTO.fromEntity(user))
+                .userId(user.getId())
+                .success(true)
+                .build();
+    }
+
+    public AuthenticationResponse refreshToken(String refreshToken) {
+        // Verificar se o token está na blacklist
+        if (tokenBlacklistService.isBlacklisted(refreshToken)) {
+            throw new InvalidTokenException("Token inválido ou expirado");
+        }
+        
+        // Extrair email do token
+        String userEmail = jwtService.extractUsername(refreshToken);
+        
+        if (userEmail == null) {
+            throw new InvalidTokenException("Token inválido");
+        }
+        
+        // Buscar usuário
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+        
+        // Verificar validade do token
+        if (!jwtService.isTokenValid(refreshToken, user)) {
+            throw new InvalidTokenException("Token inválido ou expirado");
+        }
+        
+        // Gerar novo token JWT
+        String jwtToken = jwtService.generateToken(user);
+        
+        return AuthenticationResponse.builder()
+                .token(jwtToken)
+                .user(UserDTO.fromEntity(user))
+                .userId(user.getId())
+                .success(true)
+                .build();
+    }
+
+    public void logout(String token) {
+        // Adicionar token à blacklist
+        tokenBlacklistService.blacklist(token);
+    }
+}
+```
+
+### 1.6 Serviço de Autenticação Firebase
+
+Vamos implementar o serviço para autenticação com Firebase:
+
+```java
+@Service
+@RequiredArgsConstructor
+public class FirebaseAuthService {
+    private final FirebaseAuth firebaseAuth;
+    private final UserRepository userRepository;
+    private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
+
+    public AuthenticationResponse authenticateWithFirebase(String idToken) {
+        try {
+            // Verificar token do Firebase
+            FirebaseToken decodedToken = firebaseAuth.verifyIdToken(idToken);
+            String email = decodedToken.getEmail();
+            
+            // Buscar usuário pelo email
+            Optional<User> userOptional = userRepository.findByEmail(email);
+            
+            User user;
+            
+            if (userOptional.isPresent()) {
+                // Usuário já existe
+                user = userOptional.get();
+            } else {
+                // Criar novo usuário
+                user = User.builder()
+                        .name(decodedToken.getName())
+                        .email(email)
+                        .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                        .userType("ALUNO") // Padrão para usuários do Firebase
+                        .confirmed(true) // Usuários do Firebase já são confirmados
+                        .requestLocation("APP")
+                        .build();
+                
+                user = userRepository.save(user);
+            }
+            
+            // Gerar token JWT
+            String jwtToken = jwtService.generateToken(user);
+            
+            return AuthenticationResponse.builder()
+                    .token(jwtToken)
+                    .user(UserDTO.fromEntity(user))
+                    .userId(user.getId())
+                    .success(true)
+                    .build();
+        } catch (FirebaseAuthException e) {
+            throw new InvalidTokenException("Token do Firebase inválido: " + e.getMessage());
+        }
+    }
+}
+```
+
+## 2. Implementação do Frontend
+
+### 2.1 Configuração do Cliente HTTP
+
+Primeiro, vamos configurar o cliente HTTP para comunicação com a API:
+
+```typescript
+// src/services/api.ts
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:8080/api',
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Interceptor para adicionar token JWT
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor para tratamento de erros
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Se o erro for 401 (Unauthorized) e não for uma requisição de refresh token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Tentar renovar o token
+        const token = localStorage.getItem('token');
+        
+        if (token) {
+          const response = await axios.post(
+            'http://localhost:8080/api/auth/refresh-token',
+            {},
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          
+          const newToken = response.data.token;
+          
+          // Atualizar token no localStorage
+          localStorage.setItem('token', newToken);
+          
+          // Atualizar token na requisição original
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          
+          // Repetir a requisição original
+          return axios(originalRequest);
+        }
+      } catch (refreshError) {
+        // Se não conseguir renovar o token, redirecionar para login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+```
+
+### 2.2 Serviço de Autenticação
+
+Agora, vamos criar o serviço de autenticação:
+
+```typescript
+// src/services/auth.service.ts
+import api from './api';
+
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+  userType: 'ALUNO' | 'PERSONAL';
+  requestLocation: 'APP' | 'WEB';
+  confirmed?: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface FirebaseAuthRequest {
+  idToken: string;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  userType: 'ALUNO' | 'PERSONAL';
+  profilePhotoUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+  userId: number;
+  success: boolean;
+}
+
+class AuthService {
+  async register(data: RegisterRequest): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', data);
+    this.setSession(response.data);
+    return response.data;
+  }
+
+  async login(data: LoginRequest): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/login', data);
+    this.setSession(response.data);
+    return response.data;
+  }
+
+  async loginWithFirebase(idToken: string): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/firebase-login', { idToken });
+    this.setSession(response.data);
+    return response.data;
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    } finally {
+      this.clearSession();
+    }
+  }
+
+  isAuthenticated(): boolean {
+    return !!localStorage.getItem('token');
+  }
+
+  getUser(): User | null {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  }
+
+  private setSession(authResponse: AuthResponse): void {
+    localStorage.setItem('token', authResponse.token);
+    localStorage.setItem('user', JSON.stringify(authResponse.user));
+  }
+
+  private clearSession(): void {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }
+}
+
+export default new AuthService();
+```
+
+### 2.3 Contexto de Autenticação
+
+Vamos criar um contexto para gerenciar o estado de autenticação:
+
+```tsx
+// src/contexts/AuthContext.tsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import authService, { User, LoginRequest, RegisterRequest } from '../services/auth.service';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+
+// Configuração do Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyAZVvc5cy1pSD4iZ_035IzIcK__HuKDGfY",
+  authDomain: "fitlocus-app-50458.firebaseapp.com",
+  projectId: "fitlocus-app-50458",
+  storageBucket: "fitlocus-app-50458.firebasestorage.app",
+  messagingSenderId: "927725928375",
+  appId: "1:927725928375:web:903097a6978f1130607232"
+};
+
+const app = initializeApp(firebaseConfig);
+const firebaseAuth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+
+interface AuthContextData {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  isAuthenticated: boolean;
+  login: (data: LoginRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+  clearError: () => void;
+}
+
+const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Verificar se o usuário está autenticado ao carregar a página
+    const checkAuth = () => {
+      const storedUser = authService.getUser();
+      const isAuth = authService.isAuthenticated();
+      
+      setUser(storedUser);
+      setIsAuthenticated(isAuth);
+      setLoading(false);
+    };
+    
+    checkAuth();
+  }, []);
+
+  const login = async (data: LoginRequest) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await authService.login(data);
+      setUser(response.user);
+      setIsAuthenticated(true);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao fazer login');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (data: RegisterRequest) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await authService.register(data);
+      setUser(response.user);
+      setIsAuthenticated(true);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao fazer registro');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      
+      const response = await authService.loginWithFirebase(idToken);
+      setUser(response.user);
+      setIsAuthenticated(true);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao fazer login com Google');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setLoading(true);
+    
+    try {
+      await authService.logout();
+      setUser(null);
+      setIsAuthenticated(false);
+      navigate('/login');
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearError = () => {
+    setError(null);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        error,
+        isAuthenticated,
+        login,
+        register,
+        loginWithGoogle,
+        logout,
+        clearError
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => useContext(AuthContext);
+```
+
+### 2.4 Componente de Login
+
+Vamos criar um componente para a tela de login:
+
+```tsx
+// src/components/Login.tsx
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+const Login: React.FC = () => {
+  const { login, loginWithGoogle, loading, error, clearError } = useAuth();
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+
+  useEffect(() => {
+    // Limpar erro ao montar o componente
+    clearError();
+  }, [clearError]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await login(formData);
+  };
+
+  const handleGoogleLogin = async () => {
+    await loginWithGoogle();
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <div className="login-header">
+          <h2>Login</h2>
+          <p>Entre na sua conta para acessar o FitLocus</p>
+        </div>
+        
+        {error && <div className="error-message">{error}</div>}
+        
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="password">Senha</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="forgot-password">
+            <Link to="/forgot-password">Esqueceu a senha?</Link>
+          </div>
+          
+          <button type="submit" className="login-button" disabled={loading}>
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+        </form>
+        
+        <div className="divider">
+          <span>ou</span>
+        </div>
+        
+        <button
+          type="button"
+          className="google-button"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+        >
+          <img src="/images/google-icon.svg" alt="Google" />
+          Entrar com Google
+        </button>
+        
+        <div className="register-link">
+          <p>
+            Não tem uma conta? <Link to="/register">Cadastre-se</Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
+```
+
+### 2.5 Componente de Registro
+
+Agora, vamos criar um componente para a tela de registro:
+
+```tsx
+// src/components/Register.tsx
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+const Register: React.FC = () => {
+  const { register, loginWithGoogle, loading, error, clearError } = useAuth();
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Limpar erro ao montar o componente
+    clearError();
+  }, [clearError]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Limpar erro de senha ao digitar
+    if (name === 'password' || name === 'confirmPassword') {
+      setPasswordError(null);
+    }
+  };
+
+  const validateForm = () => {
+    if (formData.password !== formData.confirmPassword) {
+      setPasswordError('As senhas não coincidem');
+      return false;
+    }
+    
+    if (formData.password.length < 8) {
+      setPasswordError('A senha deve ter pelo menos 8 caracteres');
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    // Preparar dados para o backend
+    const registerData = {
+      name: `${formData.firstName} ${formData.lastName}`,
+      email: formData.email,
+      password: formData.password,
+      userType: 'PERSONAL', // Tipo padrão para registro web
+      requestLocation: 'WEB',
+      confirmed: true // Confirmação automática para web
+    };
+    
+    await register(registerData);
+  };
+
+  const handleGoogleLogin = async () => {
+    await loginWithGoogle();
+  };
+
+  return (
+    <div className="register-container">
+      <div className="register-card">
+        <div className="register-header">
+          <h2>Cadastro</h2>
+          <p>Crie sua conta para acessar o FitLocus</p>
+        </div>
+        
+        {error && <div className="error-message">{error}</div>}
+        
+        <form onSubmit={handleSubmit}>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="firstName">Nome</label>
+              <input
+                type="text"
+                id="firstName"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="lastName">Sobrenome</label>
+              <input
+                type="text"
+                id="lastName"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="password">Senha</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="confirmPassword">Confirmar Senha</label>
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+            />
+            {passwordError && <div className="field-error">{passwordError}</div>}
+          </div>
+          
+          <button type="submit" className="register-button" disabled={loading}>
+            {loading ? 'Cadastrando...' : 'Cadastrar'}
+          </button>
+        </form>
+        
+        <div className="divider">
+          <span>ou</span>
+        </div>
+        
+        <button
+          type="button"
+          className="google-button"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+        >
+          <img src="/images/google-icon.svg" alt="Google" />
+          Cadastrar com Google
+        </button>
+        
+        <div className="login-link">
+          <p>
+            Já tem uma conta? <Link to="/login">Faça login</Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
+```
+
+### 2.6 Componente de Rota Protegida
+
+Vamos criar um componente para proteger rotas que exigem autenticação:
+
+```tsx
+// src/components/PrivateRoute.tsx
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+interface PrivateRouteProps {
+  userTypes?: string[];
+}
+
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ userTypes }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="loading">Carregando...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  if (userTypes && user && !userTypes.includes(user.userType)) {
+    return <Navigate to="/unauthorized" />;
+  }
+
+  return <Outlet />;
+};
+
+export default PrivateRoute;
+```
+
+### 2.7 Configuração de Rotas
+
+Finalmente, vamos configurar as rotas da aplicação:
+
+```tsx
+// src/App.tsx
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import Login from './components/Login';
+import Register from './components/Register';
+import Dashboard from './components/Dashboard';
+import Profile from './components/Profile';
+import Unauthorized from './components/Unauthorized';
+import NotFound from './components/NotFound';
+import PrivateRoute from './components/PrivateRoute';
+
+const App: React.FC = () => {
+  return (
+    <Router>
+      <AuthProvider>
+        <Routes>
+          {/* Rotas públicas */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
+          
+          {/* Rotas protegidas */}
+          <Route element={<PrivateRoute />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
+          </Route>
+          
+          {/* Rotas específicas por tipo de usuário */}
+          <Route element={<PrivateRoute userTypes={['PERSONAL']} />}>
+            <Route path="/personal/*" element={<PersonalRoutes />} />
+          </Route>
+          
+          <Route element={<PrivateRoute userTypes={['ALUNO']} />}>
+            <Route path="/student/*" element={<StudentRoutes />} />
+          </Route>
+          
+          {/* Redirecionamentos */}
+          <Route path="/" element={<Navigate to="/dashboard" />} />
+          
+          {/* Rota 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
+    </Router>
+  );
+};
+
+// Componentes para rotas específicas
+const PersonalRoutes: React.FC = () => (
+  <Routes>
+    <Route path="students" element={<PersonalStudents />} />
+    <Route path="trainings" element={<PersonalTrainings />} />
+    <Route path="*" element={<Navigate to="/personal/students" />} />
+  </Routes>
+);
+
+const StudentRoutes: React.FC = () => (
+  <Routes>
+    <Route path="trainings" element={<StudentTrainings />} />
+    <Route path="exercises" element={<StudentExercises />} />
+    <Route path="*" element={<Navigate to="/student/trainings" />} />
+  </Routes>
+);
+
+export default App;
+```
+
+## 3. Testando a Implementação
+
+### 3.1 Testando o Backend
+
+Para testar o backend, você pode usar o Postman ou curl:
+
+```bash
+# Registrar um usuário
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "João Silva",
+    "email": "joao.silva@exemplo.com",
+    "password": "senha123",
+    "userType": "PERSONAL",
+    "requestLocation": "WEB",
+    "confirmed": true
+  }'
+
+# Fazer login
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "joao.silva@exemplo.com",
+    "password": "senha123"
+  }'
+
+# Acessar recurso protegido
+curl -X GET http://localhost:8080/api/users/profile \
+  -H "Authorization: Bearer seu_token_jwt"
+```
+
+### 3.2 Testando o Frontend
+
+Para testar o frontend, navegue até as páginas de login e registro:
+
+1. Acesse a página de login
+2. Tente fazer login com credenciais inválidas (deve mostrar erro)
+3. Faça login com credenciais válidas (deve redirecionar para o dashboard)
+4. Tente acessar uma rota protegida sem estar logado (deve redirecionar para login)
+5. Tente acessar uma rota específica para outro tipo de usuário (deve mostrar página não autorizada)
+
+## 4. Considerações de Segurança
+
+1. **Proteção de Senhas**:
+   - Sempre armazenar senhas com hash (BCrypt)
+   - Nunca transmitir senhas em texto plano
+
+2. **Proteção de Tokens**:
+   - Implementar expiração de tokens
+   - Utilizar HTTPS para todas as comunicações
+   - Armazenar tokens em localStorage (com cuidado) ou HttpOnly cookies
+
+3. **Proteção contra CSRF**:
+   - Implementar tokens anti-CSRF para operações sensíveis
+   - Utilizar SameSite cookies quando possível
+
+4. **Proteção contra XSS**:
+   - Sanitizar inputs do usuário
+   - Implementar Content Security Policy (CSP)
+
+5. **Controle de Acesso**:
+   - Verificar permissões no backend para cada requisição
+   - Não confiar apenas em verificações do frontend
+
+## 5. Melhores Práticas
+
+1. **Separação de Responsabilidades**:
+   - Backend responsável pela validação e autenticação
+   - Frontend responsável pela experiência do usuário
+
+2. **Tratamento de Erros**:
+   - Fornecer mensagens de erro claras e amigáveis
+   - Não expor detalhes técnicos em mensagens de erro
+
+3. **Experiência do Usuário**:
+   - Implementar feedback visual durante operações de autenticação
+   - Redirecionar automaticamente após login/logout
+
+4. **Segurança**:
+   - Implementar rate limiting para tentativas de login
+   - Monitorar e registrar tentativas de login suspeitas
+
+## Próximos Passos
+
+Agora que você implementou a autenticação, você pode:
+
+1. [Criar um Plano de Treino](/tutorials/create-training-plan)
+2. [Integrar Gateway de Pagamento](/tutorials/integrate-payment-gateway)
+
+## Recursos Adicionais
+
+- [Documentação da API de Autenticação](/api-reference/authentication)
+- [Exemplos de Código de Integração](/integration/authentication)
+- [Diagramas de Fluxo](/diagrams/authentication-flow)

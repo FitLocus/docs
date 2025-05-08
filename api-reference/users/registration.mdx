@@ -1,0 +1,580 @@
+---
+title: 'Registro e Autenticação'
+description: 'Endpoints para registro e autenticação de usuários no FitLocus'
+---
+
+# Registro e Autenticação
+
+Esta seção detalha os endpoints para registro de novos usuários e autenticação de usuários existentes na plataforma FitLocus.
+
+## Registro de Usuário
+
+### Endpoint
+
+```
+POST /users/register
+```
+
+Este endpoint permite o registro de novos usuários na plataforma.
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| name | string | Sim | Nome completo do usuário |
+| email | string | Sim | Email do usuário (deve ser único) |
+| password | string | Sim | Senha do usuário (mínimo 6 caracteres) |
+| userType | string | Sim | Tipo de usuário: "ALUNO" ou "PERSONAL" |
+| requestLocation | string | Sim | Origem do registro: "APP" ou "WEB" |
+| confirmed | boolean | Sim | Se o email já foi confirmado (true para web, false para app) |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/register' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "João Silva",
+    "email": "joao@exemplo.com",
+    "password": "senha123",
+    "userType": "ALUNO",
+    "requestLocation": "APP",
+    "confirmed": false
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "user": {
+    "id": 123,
+    "name": "João Silva",
+    "email": "joao@exemplo.com",
+    "userType": "ALUNO",
+    "profilePicture": null,
+    "phone": null,
+    "birthDate": null,
+    "gender": null,
+    "height": null,
+    "weight": null,
+    "subscriptionType": "FREEMIUM",
+    "subscriptionExpirationDate": null,
+    "createdAt": "2023-01-01T10:00:00Z",
+    "updatedAt": "2023-01-01T10:00:00Z"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 123,
+  "success": true
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "email",
+      "message": "Email inválido"
+    },
+    {
+      "field": "password",
+      "message": "A senha deve ter pelo menos 6 caracteres"
+    }
+  ],
+  "success": false
+}
+```
+
+**Código:** 409 Conflict
+
+```json
+{
+  "message": "Email já registrado",
+  "success": false
+}
+```
+
+## Login com Email e Senha
+
+### Endpoint
+
+```
+POST /users/login
+```
+
+Este endpoint permite a autenticação de usuários existentes utilizando email e senha.
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| email | string | Sim | Email do usuário |
+| password | string | Sim | Senha do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/login' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "joao@exemplo.com",
+    "password": "senha123"
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "user": {
+    "id": 123,
+    "name": "João Silva",
+    "email": "joao@exemplo.com",
+    "userType": "ALUNO",
+    "profilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/123.jpg",
+    "phone": "+5511999999999",
+    "birthDate": "1990-01-01",
+    "gender": "MASCULINO",
+    "height": 175,
+    "weight": 70.5,
+    "subscriptionType": "PREMIUM_MENSAL",
+    "subscriptionExpirationDate": "2023-12-31T23:59:59Z",
+    "createdAt": "2023-01-01T10:00:00Z",
+    "updatedAt": "2023-01-15T14:30:00Z"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 123,
+  "success": true
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Credenciais inválidas",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Usuário não encontrado",
+  "success": false
+}
+```
+
+## Login com Firebase
+
+### Endpoint
+
+```
+POST /users/firebase-login
+```
+
+Este endpoint permite a autenticação de usuários utilizando um token do Firebase Authentication.
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| firebaseToken | string | Sim | Token gerado pelo Firebase Authentication |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/firebase-login' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "firebaseToken": "firebase-token-gerado-pelo-sdk"
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "user": {
+    "id": 123,
+    "name": "João Silva",
+    "email": "joao@exemplo.com",
+    "userType": "ALUNO",
+    // outros campos do UserDTO
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 123,
+  "success": true
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Token do Firebase inválido",
+  "success": false
+}
+```
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Usuário não encontrado",
+  "success": false
+}
+```
+
+## Renovação de Token
+
+### Endpoint
+
+```
+POST /users/refresh-token
+```
+
+Este endpoint permite renovar um token JWT antes que expire.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT atual |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/refresh-token' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "success": true
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Logout
+
+### Endpoint
+
+```
+POST /users/logout
+```
+
+Este endpoint invalida o token JWT atual, realizando o logout do usuário.
+
+### Cabeçalhos da Requisição
+
+| Cabeçalho | Valor | Descrição |
+|-----------|-------|-----------|
+| Authorization | Bearer {token} | Token JWT atual |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/logout' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "message": "Logout realizado com sucesso",
+  "success": true
+}
+```
+
+### Respostas de Erro
+
+**Código:** 401 Unauthorized
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+## Recuperação de Senha
+
+### Endpoint para Solicitar Recuperação
+
+```
+POST /users/forgot-password
+```
+
+Este endpoint inicia o processo de recuperação de senha, enviando um email com um link para redefinição.
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| email | string | Sim | Email do usuário |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/forgot-password' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "joao@exemplo.com"
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "message": "Email de recuperação enviado com sucesso",
+  "success": true
+}
+```
+
+### Respostas de Erro
+
+**Código:** 404 Not Found
+
+```json
+{
+  "message": "Usuário não encontrado",
+  "success": false
+}
+```
+
+### Endpoint para Redefinir Senha
+
+```
+POST /users/reset-password
+```
+
+Este endpoint permite redefinir a senha utilizando o token recebido por email.
+
+### Parâmetros da Requisição
+
+O corpo da requisição deve conter um objeto JSON com os seguintes campos:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| token | string | Sim | Token de recuperação recebido por email |
+| password | string | Sim | Nova senha (mínimo 6 caracteres) |
+
+### Exemplo de Requisição
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/reset-password' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "token": "token-de-recuperacao",
+    "password": "nova-senha123"
+  }'
+```
+
+### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "message": "Senha redefinida com sucesso",
+  "success": true
+}
+```
+
+### Respostas de Erro
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "Token inválido ou expirado",
+  "success": false
+}
+```
+
+**Código:** 400 Bad Request
+
+```json
+{
+  "message": "A senha deve ter pelo menos 6 caracteres",
+  "success": false
+}
+```
+
+## Implementação no Frontend
+
+### Registro de Usuário
+
+```typescript
+// Exemplo com Axios
+const register = async (userData) => {
+  try {
+    const response = await axios.post('/users/register', userData);
+    
+    // Armazenar token e dados do usuário
+    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('user', JSON.stringify(response.data.user));
+    
+    return response.data;
+  } catch (error) {
+    throw error.response.data;
+  }
+};
+```
+
+### Login
+
+```typescript
+// Exemplo com Axios
+const login = async (email, password) => {
+  try {
+    const response = await axios.post('/users/login', { email, password });
+    
+    // Armazenar token e dados do usuário
+    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('user', JSON.stringify(response.data.user));
+    
+    return response.data;
+  } catch (error) {
+    throw error.response.data;
+  }
+};
+```
+
+### Login com Firebase
+
+```typescript
+// Exemplo com Firebase e Axios
+import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+
+const loginWithGoogle = async () => {
+  try {
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
+    
+    // Autenticar com Firebase
+    const result = await signInWithPopup(auth, provider);
+    const firebaseToken = await result.user.getIdToken();
+    
+    // Autenticar com backend
+    const response = await axios.post('/users/firebase-login', { firebaseToken });
+    
+    // Armazenar token e dados do usuário
+    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('user', JSON.stringify(response.data.user));
+    
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+```
+
+### Logout
+
+```typescript
+// Exemplo com Axios
+const logout = async () => {
+  try {
+    await axios.post('/users/logout');
+    
+    // Remover token e dados do usuário
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    return true;
+  } catch (error) {
+    throw error.response.data;
+  }
+};
+```
+
+## Considerações de Segurança
+
+1. **Validação de Dados**: Todos os dados de entrada são validados tanto no frontend quanto no backend para prevenir injeção de dados maliciosos.
+
+2. **Proteção de Senhas**: As senhas são armazenadas utilizando o algoritmo BCrypt para hash seguro.
+
+3. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS para proteger dados sensíveis durante a transmissão.
+
+4. **Tokens JWT**: Os tokens JWT têm validade limitada (24 horas) e são assinados com uma chave secreta.
+
+5. **Rate Limiting**: A API implementa limitação de taxa para prevenir ataques de força bruta em endpoints de autenticação.
+
+6. **Confirmação de Email**: Para registros via aplicativo móvel, é enviado um email de confirmação para verificar a identidade do usuário.
+
+7. **Recuperação de Senha**: O processo de recuperação de senha utiliza tokens de uso único com validade limitada.
+
+## Troubleshooting
+
+### Problemas Comuns
+
+1. **"Email já registrado"**: Tente fazer login com o email ou utilize a funcionalidade de recuperação de senha.
+
+2. **"Credenciais inválidas"**: Verifique se o email e senha estão corretos. Caso tenha esquecido a senha, utilize a funcionalidade de recuperação.
+
+3. **"Token inválido ou expirado"**: Faça login novamente para obter um novo token.
+
+4. **"Usuário não encontrado"**: Verifique se o email está correto ou registre-se como um novo usuário.
+
+### Depuração
+
+Para depurar problemas de autenticação:
+
+1. Verifique os logs do console para mensagens de erro detalhadas
+2. Utilize ferramentas como o Postman para testar os endpoints diretamente
+3. Verifique se o token JWT está sendo enviado corretamente no cabeçalho Authorization
+4. Decodifique o token JWT em [jwt.io](https://jwt.io) para verificar as claims

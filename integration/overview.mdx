@@ -1,0 +1,93 @@
+---
+title: 'Visão Geral de Integração'
+description: 'Guia para integração com a plataforma FitLocus'
+---
+
+# Integração com o FitLocus
+
+Este guia fornece exemplos práticos e orientações para integrar sua aplicação com a plataforma FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A plataforma FitLocus oferece uma API RESTful completa que permite:
+    </p>
+    <ul>
+      <li>Autenticação e gerenciamento de usuários</li>
+      <li>Gerenciamento de exercícios e treinos</li>
+      <li>Relacionamento entre personal trainers e alunos</li>
+      <li>Processamento de pagamentos e assinaturas</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos Técnicos
+
+Para integrar com a API do FitLocus, você precisará:
+
+- **Ambiente de Desenvolvimento**:
+  - Java 21 ou superior para integrações backend
+  - Node.js 18+ para integrações frontend
+  - Ferramentas de API como Postman ou Insomnia para testes
+
+- **Autenticação**:
+  - Credenciais de API (solicite ao suporte)
+  - Implementação de autenticação JWT
+
+- **Requisitos de Rede**:
+  - HTTPS para todas as comunicações
+  - Suporte a CORS para integrações frontend
+
+## Fluxo de Integração
+
+O processo típico de integração com o FitLocus segue estas etapas:
+
+1. **Configuração do Ambiente**: Prepare seu ambiente de desenvolvimento com as ferramentas necessárias
+2. **Autenticação**: Implemente o fluxo de autenticação para obter tokens JWT
+3. **Integração de Usuários**: Conecte o gerenciamento de usuários
+4. **Integração de Exercícios e Treinos**: Implemente a criação e execução de treinos
+5. **Integração de Pagamentos**: Conecte o processamento de pagamentos (se aplicável)
+6. **Testes e Validação**: Teste todos os fluxos de integração
+
+## Exemplos de Integração
+
+Esta seção contém exemplos práticos para diferentes aspectos da integração com o FitLocus:
+
+- [Autenticação](/integration/authentication): Implementação de login, registro e gerenciamento de tokens
+- [Usuários](/integration/users): Gerenciamento de perfis e relacionamentos
+- [Exercícios](/integration/exercises): Criação e execução de exercícios
+- [Treinos](/integration/trainings): Gerenciamento de treinos e planos
+- [Pagamentos](/integration/payments): Processamento de pagamentos e assinaturas
+
+## Melhores Práticas
+
+Ao integrar com a plataforma FitLocus, recomendamos seguir estas melhores práticas:
+
+### Segurança
+
+- Nunca armazene tokens JWT em localStorage em aplicações web (use cookies HttpOnly)
+- Implemente HTTPS para todas as comunicações
+- Valide todos os dados de entrada antes de enviá-los para a API
+- Nunca exponha credenciais de API no código frontend
+
+### Performance
+
+- Implemente cache para reduzir o número de chamadas à API
+- Utilize paginação para listas grandes de dados
+- Otimize o tamanho das requisições e respostas
+
+### Manutenção
+
+- Utilize versionamento semântico para sua integração
+- Mantenha logs detalhados para depuração
+- Implemente testes automatizados para todos os fluxos de integração
+
+## Suporte
+
+Se você encontrar problemas durante a integração, entre em contato com nossa equipe de suporte:
+
+- Email: suporte@fitlocus.com
+- Documentação: [API Reference](/api-reference/introduction)
+- GitHub: [FitLocus Backend](https://github.com/logoscti/fitlocus-backend)

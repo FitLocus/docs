@@ -1,0 +1,252 @@
+---
+title: 'Visão Geral de Usuários'
+description: 'Endpoints para gerenciamento de usuários no FitLocus'
+---
+
+# API de Usuários
+
+A API de Usuários do FitLocus fornece endpoints para gerenciamento de contas de usuário, autenticação, perfis e preferências.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A API de Usuários permite:
+    </p>
+    <ul>
+      <li>Registro e autenticação de usuários</li>
+      <li>Gerenciamento de perfis de usuário</li>
+      <li>Recuperação e atualização de informações pessoais</li>
+      <li>Gerenciamento de preferências e configurações</li>
+      <li>Consulta de métricas e estatísticas de usuário</li>
+    </ul>
+  </div>
+</Frame>
+
+## Tipos de Usuário
+
+O FitLocus possui dois tipos principais de usuário:
+
+```java
+public enum EnumUserType {
+    ALUNO,    // Estudante/cliente
+    PERSONAL  // Personal trainer
+}
+```
+
+Cada tipo de usuário tem acesso a diferentes funcionalidades e endpoints, conforme detalhado na [documentação de tipos de usuário](/business/user-types).
+
+## Modelo de Dados
+
+### UserDTO
+
+O objeto UserDTO é utilizado para transferência de dados de usuário entre o cliente e o servidor:
+
+```json
+{
+  "id": 123,
+  "name": "Nome Completo",
+  "email": "usuario@exemplo.com",
+  "userType": "ALUNO",
+  "profilePicture": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/profile/123.jpg",
+  "phone": "+5511999999999",
+  "birthDate": "1990-01-01",
+  "gender": "MASCULINO",
+  "height": 175,
+  "weight": 70.5,
+  "subscriptionType": "PREMIUM_MENSAL",
+  "subscriptionExpirationDate": "2023-12-31T23:59:59Z",
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-01-15T14:30:00Z"
+}
+```
+
+### RegisterRequest
+
+Objeto utilizado para registro de novos usuários:
+
+```json
+{
+  "name": "Nome Completo",
+  "email": "usuario@exemplo.com",
+  "password": "senha123",
+  "userType": "ALUNO",
+  "requestLocation": "APP",
+  "confirmed": true
+}
+```
+
+### LoginRequest
+
+Objeto utilizado para autenticação de usuários:
+
+```json
+{
+  "email": "usuario@exemplo.com",
+  "password": "senha123"
+}
+```
+
+### AuthResponse
+
+Resposta retornada após autenticação bem-sucedida:
+
+```json
+{
+  "user": {
+    "id": 123,
+    "name": "Nome Completo",
+    "email": "usuario@exemplo.com",
+    "userType": "ALUNO",
+    // outros campos do UserDTO
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 123,
+  "success": true
+}
+```
+
+## Endpoints Principais
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/users/register` | Registra um novo usuário |
+| POST | `/users/login` | Autentica um usuário existente |
+| POST | `/users/firebase-login` | Autentica usando token do Firebase |
+| GET | `/users/profile` | Obtém o perfil do usuário autenticado |
+| PUT | `/users/profile` | Atualiza o perfil do usuário autenticado |
+| GET | `/users/{id}` | Obtém informações de um usuário específico |
+| PUT | `/users/{id}` | Atualiza informações de um usuário específico |
+| DELETE | `/users/{id}` | Remove um usuário |
+| POST | `/users/refresh-token` | Renova o token JWT |
+| POST | `/users/logout` | Realiza logout (invalida o token) |
+| POST | `/users/forgot-password` | Inicia o processo de recuperação de senha |
+| POST | `/users/reset-password` | Redefine a senha com token de recuperação |
+| GET | `/users/metrics` | Obtém métricas do usuário autenticado |
+
+## Detalhes de Implementação
+
+### Autenticação
+
+Todos os endpoints, exceto `/users/register`, `/users/login`, `/users/firebase-login`, `/users/forgot-password` e `/users/reset-password`, requerem autenticação via token JWT no cabeçalho `Authorization`:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Para mais detalhes sobre autenticação, consulte a [documentação de autenticação](/api-reference/authentication).
+
+### Controle de Acesso
+
+O acesso aos endpoints é controlado com base no tipo de usuário:
+
+```java
+@PreAuthorize("hasRole('PERSONAL')")
+@GetMapping("/students")
+public ResponseEntity<List<UserDTO>> getStudents() {
+    // Implementação...
+}
+```
+
+Alguns endpoints, como `/users/{id}`, implementam verificações adicionais para garantir que um usuário só possa acessar seus próprios dados ou dados de usuários relacionados (no caso de personal trainers e seus alunos).
+
+### Validação de Dados
+
+Todos os endpoints que recebem dados do cliente implementam validação rigorosa:
+
+```java
+@PostMapping("/register")
+public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+    // Implementação...
+}
+```
+
+A anotação `@Valid` ativa a validação baseada em anotações como `@NotNull`, `@Email`, `@Size`, etc., definidas no objeto `RegisterRequest`.
+
+## Exemplos de Uso
+
+### Registro de Usuário
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/register' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "João Silva",
+    "email": "joao@exemplo.com",
+    "password": "senha123",
+    "userType": "ALUNO",
+    "requestLocation": "APP",
+    "confirmed": true
+  }'
+```
+
+### Login
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/users/login' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "joao@exemplo.com",
+    "password": "senha123"
+  }'
+```
+
+### Obter Perfil
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/users/profile' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Atualizar Perfil
+
+```bash
+curl -X PUT \
+  'http://localhost:8080/api/users/profile' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "João Silva",
+    "phone": "+5511999999999",
+    "birthDate": "1990-01-01",
+    "gender": "MASCULINO",
+    "height": 175,
+    "weight": 70.5
+  }'
+```
+
+## Códigos de Status
+
+| Código | Descrição |
+|--------|-----------|
+| 200 | OK - A requisição foi bem-sucedida |
+| 201 | Created - Um novo usuário foi criado com sucesso |
+| 400 | Bad Request - A requisição contém dados inválidos |
+| 401 | Unauthorized - Autenticação necessária |
+| 403 | Forbidden - Sem permissão para acessar o recurso |
+| 404 | Not Found - Usuário não encontrado |
+| 409 | Conflict - Email já registrado |
+| 500 | Internal Server Error - Erro interno do servidor |
+
+## Considerações de Segurança
+
+1. **Senhas**: As senhas são armazenadas utilizando o algoritmo BCrypt para hash seguro.
+
+2. **Dados Sensíveis**: Informações sensíveis como senha nunca são retornadas nas respostas da API.
+
+3. **Rate Limiting**: A API implementa limitação de taxa para prevenir ataques de força bruta.
+
+4. **Validação**: Todos os dados de entrada são validados rigorosamente para prevenir injeção de dados maliciosos.
+
+5. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS.
+
+## Próximos Passos
+
+Para mais detalhes sobre endpoints específicos, consulte:
+
+- [Registro e Autenticação](/api-reference/users/registration)
+- [Gerenciamento de Perfil](/api-reference/users/profile)

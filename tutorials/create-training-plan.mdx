@@ -1,0 +1,1248 @@
+---
+title: 'Criação de Plano de Treino'
+description: 'Tutorial passo a passo para implementar planos de treino no FitLocus'
+---
+
+# Criação de Plano de Treino
+
+Este tutorial guiará você através do processo de criação e implementação de planos de treino no ecossistema FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      Neste tutorial, você aprenderá a:
+    </p>
+    <ul>
+      <li>Criar um plano de treino no backend</li>
+      <li>Adicionar treinos ao plano</li>
+      <li>Configurar frequência e duração</li>
+      <li>Atribuir o plano a um aluno</li>
+      <li>Implementar a interface do plano no frontend</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos
+
+Antes de começar, certifique-se de ter:
+
+- Ambiente de desenvolvimento configurado ([Tutorial de Configuração](/tutorials/setup-environment))
+- Conhecimento básico de Java e Spring Boot (backend)
+- Conhecimento básico de React/TypeScript (frontend)
+- Acesso aos repositórios do FitLocus
+
+## 1. Implementação do Backend
+
+### 1.1 Modelo de Plano de Treino
+
+Primeiro, vamos criar o modelo de dados para o plano de treino:
+
+```java
+@Entity
+@Table(name = "training_plans")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class TrainingPlan {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "personal_id", nullable = false)
+    private Long personalId;
+
+    @Column(name = "student_id", nullable = false)
+    private Long studentId;
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDateTime startDate;
+
+    @Column(name = "end_date", nullable = false)
+    private LocalDateTime endDate;
+
+    @Column(nullable = false)
+    private String status;
+
+    @OneToMany(mappedBy = "trainingPlan", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TrainingPlanItem> trainingItems = new ArrayList<>();
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}
+```
+
+### 1.2 Modelo de Item do Plano de Treino
+
+Em seguida, vamos criar o modelo para os itens do plano de treino:
+
+```java
+@Entity
+@Table(name = "training_plan_items")
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class TrainingPlanItem {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "training_plan_id", nullable = false)
+    private TrainingPlan trainingPlan;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "training_id", nullable = false)
+    private Training training;
+
+    @ElementCollection
+    @CollectionTable(
+        name = "training_plan_item_days",
+        joinColumns = @JoinColumn(name = "training_plan_item_id")
+    )
+    @Column(name = "day_of_week")
+    @Enumerated(EnumType.STRING)
+    private Set<DayOfWeek> daysOfWeek = new HashSet<>();
+
+    @Column(nullable = false)
+    private Integer order;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}
+```
+
+### 1.3 DTOs para Plano de Treino
+
+Agora, vamos criar os DTOs para transferência de dados:
+
+```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class TrainingPlanDTO {
+    private Long id;
+    private String name;
+    private String description;
+    private Long personalId;
+    private Long studentId;
+    private LocalDateTime startDate;
+    private LocalDateTime endDate;
+    private String status;
+    private List<TrainingPlanItemDTO> trainingItems;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public static TrainingPlanDTO fromEntity(TrainingPlan trainingPlan) {
+        return TrainingPlanDTO.builder()
+                .id(trainingPlan.getId())
+                .name(trainingPlan.getName())
+                .description(trainingPlan.getDescription())
+                .personalId(trainingPlan.getPersonalId())
+                .studentId(trainingPlan.getStudentId())
+                .startDate(trainingPlan.getStartDate())
+                .endDate(trainingPlan.getEndDate())
+                .status(trainingPlan.getStatus())
+                .trainingItems(trainingPlan.getTrainingItems().stream()
+                        .map(TrainingPlanItemDTO::fromEntity)
+                        .collect(Collectors.toList()))
+                .createdAt(trainingPlan.getCreatedAt())
+                .updatedAt(trainingPlan.getUpdatedAt())
+                .build();
+    }
+}
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class TrainingPlanItemDTO {
+    private Long id;
+    private Long trainingId;
+    private String trainingName;
+    private Set<DayOfWeek> daysOfWeek;
+    private Integer order;
+
+    public static TrainingPlanItemDTO fromEntity(TrainingPlanItem item) {
+        return TrainingPlanItemDTO.builder()
+                .id(item.getId())
+                .trainingId(item.getTraining().getId())
+                .trainingName(item.getTraining().getName())
+                .daysOfWeek(item.getDaysOfWeek())
+                .order(item.getOrder())
+                .build();
+    }
+}
+```
+
+### 1.4 Repositório de Plano de Treino
+
+Vamos criar o repositório para acesso aos dados:
+
+```java
+@Repository
+public interface TrainingPlanRepository extends JpaRepository<TrainingPlan, Long> {
+    List<TrainingPlan> findByPersonalId(Long personalId);
+    
+    List<TrainingPlan> findByStudentId(Long studentId);
+    
+    @Query("SELECT tp FROM TrainingPlan tp WHERE tp.personalId = :personalId AND tp.studentId = :studentId")
+    List<TrainingPlan> findByPersonalIdAndStudentId(Long personalId, Long studentId);
+    
+    @Query("SELECT tp FROM TrainingPlan tp WHERE tp.studentId = :studentId AND tp.status = 'ACTIVE' AND tp.endDate >= :now")
+    Optional<TrainingPlan> findActiveByStudentId(Long studentId, LocalDateTime now);
+}
+```
+
+### 1.5 Serviço de Plano de Treino
+
+Agora, vamos implementar o serviço que gerencia a lógica de negócio:
+
+```java
+@Service
+@Transactional
+public class TrainingPlanService {
+    private final TrainingPlanRepository trainingPlanRepository;
+    private final TrainingRepository trainingRepository;
+    private final PersonalStudentRepository personalStudentRepository;
+
+    public TrainingPlanService(
+            TrainingPlanRepository trainingPlanRepository,
+            TrainingRepository trainingRepository,
+            PersonalStudentRepository personalStudentRepository) {
+        this.trainingPlanRepository = trainingPlanRepository;
+        this.trainingRepository = trainingRepository;
+        this.personalStudentRepository = personalStudentRepository;
+    }
+
+    public TrainingPlanDTO createTrainingPlan(TrainingPlanCreateRequest request, Long personalId) {
+        // Verificar relacionamento personal-aluno
+        boolean hasRelationship = personalStudentRepository.existsByPersonalIdAndStudentId(
+                personalId, request.getStudentId());
+        
+        if (!hasRelationship) {
+            throw new AccessDeniedException("Você não tem permissão para criar um plano para este aluno");
+        }
+        
+        // Criar plano de treino
+        TrainingPlan trainingPlan = TrainingPlan.builder()
+                .name(request.getName())
+                .description(request.getDescription())
+                .personalId(personalId)
+                .studentId(request.getStudentId())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .status("ACTIVE")
+                .build();
+        
+        TrainingPlan savedPlan = trainingPlanRepository.save(trainingPlan);
+        
+        // Adicionar treinos ao plano
+        if (request.getTrainingItems() != null && !request.getTrainingItems().isEmpty()) {
+            List<TrainingPlanItem> items = new ArrayList<>();
+            
+            for (int i = 0; i < request.getTrainingItems().size(); i++) {
+                TrainingPlanItemRequest itemRequest = request.getTrainingItems().get(i);
+                
+                Training training = trainingRepository.findById(itemRequest.getTrainingId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Treino não encontrado"));
+                
+                TrainingPlanItem item = TrainingPlanItem.builder()
+                        .trainingPlan(savedPlan)
+                        .training(training)
+                        .daysOfWeek(new HashSet<>(itemRequest.getDaysOfWeek()))
+                        .order(i + 1)
+                        .build();
+                
+                items.add(item);
+            }
+            
+            savedPlan.setTrainingItems(items);
+            savedPlan = trainingPlanRepository.save(savedPlan);
+        }
+        
+        return TrainingPlanDTO.fromEntity(savedPlan);
+    }
+
+    public TrainingPlanDTO getTrainingPlanById(Long id, Long userId, String userType) {
+        TrainingPlan trainingPlan = trainingPlanRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Plano de treino não encontrado"));
+        
+        // Verificar permissões
+        if (userType.equals("PERSONAL") && !trainingPlan.getPersonalId().equals(userId)) {
+            throw new AccessDeniedException("Você não tem permissão para acessar este plano");
+        } else if (userType.equals("ALUNO") && !trainingPlan.getStudentId().equals(userId)) {
+            throw new AccessDeniedException("Você não tem permissão para acessar este plano");
+        }
+        
+        return TrainingPlanDTO.fromEntity(trainingPlan);
+    }
+
+    public List<TrainingPlanDTO> getTrainingPlansByPersonalId(Long personalId) {
+        List<TrainingPlan> trainingPlans = trainingPlanRepository.findByPersonalId(personalId);
+        return trainingPlans.stream()
+                .map(TrainingPlanDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public List<TrainingPlanDTO> getTrainingPlansByStudentId(Long studentId) {
+        List<TrainingPlan> trainingPlans = trainingPlanRepository.findByStudentId(studentId);
+        return trainingPlans.stream()
+                .map(TrainingPlanDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public TrainingPlanDTO getActiveTrainingPlanByStudentId(Long studentId) {
+        return trainingPlanRepository.findActiveByStudentId(studentId, LocalDateTime.now())
+                .map(TrainingPlanDTO::fromEntity)
+                .orElse(null);
+    }
+
+    public TrainingPlanDTO updateTrainingPlan(Long id, TrainingPlanUpdateRequest request, Long personalId) {
+        TrainingPlan trainingPlan = trainingPlanRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Plano de treino não encontrado"));
+        
+        // Verificar permissões
+        if (!trainingPlan.getPersonalId().equals(personalId)) {
+            throw new AccessDeniedException("Você não tem permissão para atualizar este plano");
+        }
+        
+        // Atualizar dados básicos
+        if (request.getName() != null) {
+            trainingPlan.setName(request.getName());
+        }
+        
+        if (request.getDescription() != null) {
+            trainingPlan.setDescription(request.getDescription());
+        }
+        
+        if (request.getStartDate() != null) {
+            trainingPlan.setStartDate(request.getStartDate());
+        }
+        
+        if (request.getEndDate() != null) {
+            trainingPlan.setEndDate(request.getEndDate());
+        }
+        
+        if (request.getStatus() != null) {
+            trainingPlan.setStatus(request.getStatus());
+        }
+        
+        // Atualizar treinos (opcional)
+        if (request.getTrainingItems() != null) {
+            // Remover itens existentes
+            trainingPlan.getTrainingItems().clear();
+            
+            // Adicionar novos itens
+            List<TrainingPlanItem> items = new ArrayList<>();
+            
+            for (int i = 0; i < request.getTrainingItems().size(); i++) {
+                TrainingPlanItemRequest itemRequest = request.getTrainingItems().get(i);
+                
+                Training training = trainingRepository.findById(itemRequest.getTrainingId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Treino não encontrado"));
+                
+                TrainingPlanItem item = TrainingPlanItem.builder()
+                        .trainingPlan(trainingPlan)
+                        .training(training)
+                        .daysOfWeek(new HashSet<>(itemRequest.getDaysOfWeek()))
+                        .order(i + 1)
+                        .build();
+                
+                items.add(item);
+            }
+            
+            trainingPlan.setTrainingItems(items);
+        }
+        
+        TrainingPlan updatedPlan = trainingPlanRepository.save(trainingPlan);
+        return TrainingPlanDTO.fromEntity(updatedPlan);
+    }
+
+    public void deleteTrainingPlan(Long id, Long personalId) {
+        TrainingPlan trainingPlan = trainingPlanRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Plano de treino não encontrado"));
+        
+        // Verificar permissões
+        if (!trainingPlan.getPersonalId().equals(personalId)) {
+            throw new AccessDeniedException("Você não tem permissão para excluir este plano");
+        }
+        
+        trainingPlanRepository.delete(trainingPlan);
+    }
+}
+```
+
+### 1.6 Controlador de Plano de Treino
+
+Por fim, vamos implementar o controlador REST:
+
+```java
+@RestController
+@RequestMapping("/api/training-plans")
+public class TrainingPlanController {
+    private final TrainingPlanService trainingPlanService;
+
+    public TrainingPlanController(TrainingPlanService trainingPlanService) {
+        this.trainingPlanService = trainingPlanService;
+    }
+
+    @PostMapping
+    public ResponseEntity<TrainingPlanDTO> createTrainingPlan(
+            @Valid @RequestBody TrainingPlanCreateRequest request,
+            Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        
+        if (!user.getUserType().equals("PERSONAL")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        TrainingPlanDTO trainingPlan = trainingPlanService.createTrainingPlan(request, user.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(trainingPlan);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<TrainingPlanDTO> getTrainingPlanById(
+            @PathVariable Long id,
+            Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        TrainingPlanDTO trainingPlan = trainingPlanService.getTrainingPlanById(id, user.getId(), user.getUserType());
+        return ResponseEntity.ok(trainingPlan);
+    }
+
+    @GetMapping("/personal")
+    public ResponseEntity<List<TrainingPlanDTO>> getTrainingPlansByPersonalId(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        
+        if (!user.getUserType().equals("PERSONAL")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        List<TrainingPlanDTO> trainingPlans = trainingPlanService.getTrainingPlansByPersonalId(user.getId());
+        return ResponseEntity.ok(trainingPlans);
+    }
+
+    @GetMapping("/student")
+    public ResponseEntity<List<TrainingPlanDTO>> getTrainingPlansByStudentId(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        
+        if (!user.getUserType().equals("ALUNO")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        List<TrainingPlanDTO> trainingPlans = trainingPlanService.getTrainingPlansByStudentId(user.getId());
+        return ResponseEntity.ok(trainingPlans);
+    }
+
+    @GetMapping("/student/active")
+    public ResponseEntity<TrainingPlanDTO> getActiveTrainingPlanByStudentId(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        
+        if (!user.getUserType().equals("ALUNO")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        TrainingPlanDTO trainingPlan = trainingPlanService.getActiveTrainingPlanByStudentId(user.getId());
+        
+        if (trainingPlan == null) {
+            return ResponseEntity.noContent().build();
+        }
+        
+        return ResponseEntity.ok(trainingPlan);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<TrainingPlanDTO> updateTrainingPlan(
+            @PathVariable Long id,
+            @Valid @RequestBody TrainingPlanUpdateRequest request,
+            Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        
+        if (!user.getUserType().equals("PERSONAL")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        TrainingPlanDTO trainingPlan = trainingPlanService.updateTrainingPlan(id, request, user.getId());
+        return ResponseEntity.ok(trainingPlan);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTrainingPlan(
+            @PathVariable Long id,
+            Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        
+        if (!user.getUserType().equals("PERSONAL")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        trainingPlanService.deleteTrainingPlan(id, user.getId());
+        return ResponseEntity.noContent().build();
+    }
+}
+```
+
+## 2. Implementação do Frontend
+
+### 2.1 Serviço de Plano de Treino
+
+Primeiro, vamos criar o serviço para comunicação com a API:
+
+```typescript
+// src/services/training-plan.service.ts
+import api from './api';
+import { DayOfWeek } from '../types/enums';
+
+export interface TrainingPlanItemRequest {
+  trainingId: number;
+  daysOfWeek: DayOfWeek[];
+}
+
+export interface TrainingPlanCreateRequest {
+  name: string;
+  description?: string;
+  studentId: number;
+  startDate: string;
+  endDate: string;
+  trainingItems: TrainingPlanItemRequest[];
+}
+
+export interface TrainingPlanUpdateRequest {
+  name?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  trainingItems?: TrainingPlanItemRequest[];
+}
+
+export interface TrainingPlanItemDTO {
+  id: number;
+  trainingId: number;
+  trainingName: string;
+  daysOfWeek: DayOfWeek[];
+  order: number;
+}
+
+export interface TrainingPlanDTO {
+  id: number;
+  name: string;
+  description?: string;
+  personalId: number;
+  studentId: number;
+  startDate: string;
+  endDate: string;
+  status: string;
+  trainingItems: TrainingPlanItemDTO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+class TrainingPlanService {
+  async createTrainingPlan(data: TrainingPlanCreateRequest): Promise<TrainingPlanDTO> {
+    const response = await api.post<TrainingPlanDTO>('/training-plans', data);
+    return response.data;
+  }
+
+  async getTrainingPlanById(id: number): Promise<TrainingPlanDTO> {
+    const response = await api.get<TrainingPlanDTO>(`/training-plans/${id}`);
+    return response.data;
+  }
+
+  async getTrainingPlansByPersonal(): Promise<TrainingPlanDTO[]> {
+    const response = await api.get<TrainingPlanDTO[]>('/training-plans/personal');
+    return response.data;
+  }
+
+  async getTrainingPlansByStudent(): Promise<TrainingPlanDTO[]> {
+    const response = await api.get<TrainingPlanDTO[]>('/training-plans/student');
+    return response.data;
+  }
+
+  async getActiveTrainingPlanByStudent(): Promise<TrainingPlanDTO | null> {
+    try {
+      const response = await api.get<TrainingPlanDTO>('/training-plans/student/active');
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 204) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async updateTrainingPlan(id: number, data: TrainingPlanUpdateRequest): Promise<TrainingPlanDTO> {
+    const response = await api.put<TrainingPlanDTO>(`/training-plans/${id}`, data);
+    return response.data;
+  }
+
+  async deleteTrainingPlan(id: number): Promise<void> {
+    await api.delete(`/training-plans/${id}`);
+  }
+}
+
+export default new TrainingPlanService();
+```
+
+### 2.2 Hook de Plano de Treino
+
+Agora, vamos criar um hook personalizado para gerenciar os planos de treino:
+
+```typescript
+// src/hooks/useTrainingPlans.ts
+import { useState, useEffect, useCallback } from 'react';
+import trainingPlanService, {
+  TrainingPlanDTO,
+  TrainingPlanCreateRequest,
+  TrainingPlanUpdateRequest
+} from '../services/training-plan.service';
+import { useAuth } from '../contexts/AuthContext';
+
+export const useTrainingPlans = () => {
+  const { user } = useAuth();
+  const [trainingPlans, setTrainingPlans] = useState<TrainingPlanDTO[]>([]);
+  const [activePlan, setActivePlan] = useState<TrainingPlanDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchTrainingPlans = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      let data: TrainingPlanDTO[];
+      
+      if (user?.userType === 'PERSONAL') {
+        data = await trainingPlanService.getTrainingPlansByPersonal();
+      } else {
+        data = await trainingPlanService.getTrainingPlansByStudent();
+      }
+      
+      setTrainingPlans(data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao carregar planos de treino');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const fetchActivePlan = useCallback(async () => {
+    if (user?.userType !== 'ALUNO') return;
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await trainingPlanService.getActiveTrainingPlanByStudent();
+      setActivePlan(data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao carregar plano ativo');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const createTrainingPlan = async (data: TrainingPlanCreateRequest) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const newPlan = await trainingPlanService.createTrainingPlan(data);
+      setTrainingPlans(prev => [...prev, newPlan]);
+      return newPlan;
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao criar plano de treino');
+      console.error(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateTrainingPlan = async (id: number, data: TrainingPlanUpdateRequest) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const updatedPlan = await trainingPlanService.updateTrainingPlan(id, data);
+      setTrainingPlans(prev => 
+        prev.map(plan => plan.id === id ? updatedPlan : plan)
+      );
+      
+      if (activePlan?.id === id) {
+        setActivePlan(updatedPlan);
+      }
+      
+      return updatedPlan;
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao atualizar plano de treino');
+      console.error(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteTrainingPlan = async (id: number) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await trainingPlanService.deleteTrainingPlan(id);
+      setTrainingPlans(prev => prev.filter(plan => plan.id !== id));
+      
+      if (activePlan?.id === id) {
+        setActivePlan(null);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao excluir plano de treino');
+      console.error(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTrainingPlans();
+    
+    if (user?.userType === 'ALUNO') {
+      fetchActivePlan();
+    }
+  }, [fetchTrainingPlans, fetchActivePlan, user]);
+
+  return {
+    trainingPlans,
+    activePlan,
+    loading,
+    error,
+    fetchTrainingPlans,
+    fetchActivePlan,
+    createTrainingPlan,
+    updateTrainingPlan,
+    deleteTrainingPlan
+  };
+};
+```
+
+### 2.3 Componente de Formulário de Plano de Treino
+
+Vamos criar um componente para o formulário de criação de planos:
+
+```tsx
+// src/components/TrainingPlanForm.tsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTrainingPlans } from '../hooks/useTrainingPlans';
+import { useTrainings } from '../hooks/useTrainings';
+import { useStudents } from '../hooks/useStudents';
+import { DayOfWeek } from '../types/enums';
+
+interface TrainingPlanFormProps {
+  onSuccess?: () => void;
+}
+
+const TrainingPlanForm: React.FC<TrainingPlanFormProps> = ({ onSuccess }) => {
+  const navigate = useNavigate();
+  const { createTrainingPlan, loading, error } = useTrainingPlans();
+  const { trainings, fetchTrainings } = useTrainings();
+  const { students, fetchStudents } = useStudents();
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    studentId: 0,
+    startDate: '',
+    endDate: '',
+    trainingItems: [{ trainingId: 0, daysOfWeek: [] as DayOfWeek[] }]
+  });
+  
+  useEffect(() => {
+    fetchTrainings();
+    fetchStudents();
+  }, [fetchTrainings, fetchStudents]);
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleStudentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFormData(prev => ({ ...prev, studentId: parseInt(e.target.value) }));
+  };
+  
+  const handleTrainingChange = (index: number, e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newItems = [...formData.trainingItems];
+    newItems[index] = { ...newItems[index], trainingId: parseInt(e.target.value) };
+    setFormData(prev => ({ ...prev, trainingItems: newItems }));
+  };
+  
+  const handleDayChange = (index: number, day: DayOfWeek, checked: boolean) => {
+    const newItems = [...formData.trainingItems];
+    const currentDays = newItems[index].daysOfWeek;
+    
+    if (checked) {
+      newItems[index] = { 
+        ...newItems[index], 
+        daysOfWeek: [...currentDays, day] 
+      };
+    } else {
+      newItems[index] = { 
+        ...newItems[index], 
+        daysOfWeek: currentDays.filter(d => d !== day) 
+      };
+    }
+    
+    setFormData(prev => ({ ...prev, trainingItems: newItems }));
+  };
+  
+  const addTrainingItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      trainingItems: [...prev.trainingItems, { trainingId: 0, daysOfWeek: [] }]
+    }));
+  };
+  
+  const removeTrainingItem = (index: number) => {
+    const newItems = [...formData.trainingItems];
+    newItems.splice(index, 1);
+    setFormData(prev => ({ ...prev, trainingItems: newItems }));
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      await createTrainingPlan(formData);
+      
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/training-plans');
+      }
+    } catch (err) {
+      // Erro já é tratado pelo hook
+    }
+  };
+  
+  return (
+    <div className="training-plan-form">
+      <h2>Novo Plano de Treino</h2>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label htmlFor="name">Nome do Plano *</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="description">Descrição</label>
+          <textarea
+            id="description"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            rows={3}
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="studentId">Aluno *</label>
+          <select
+            id="studentId"
+            value={formData.studentId}
+            onChange={handleStudentChange}
+            required
+          >
+            <option value="">Selecione um aluno</option>
+            {students.map(student => (
+              <option key={student.id} value={student.id}>
+                {student.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="startDate">Data de Início *</label>
+            <input
+              type="date"
+              id="startDate"
+              name="startDate"
+              value={formData.startDate}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="endDate">Data de Término *</label>
+            <input
+              type="date"
+              id="endDate"
+              name="endDate"
+              value={formData.endDate}
+              onChange={handleChange}
+              required
+            />
+          </div>
+        </div>
+        
+        <div className="training-items-section">
+          <h3>Treinos</h3>
+          
+          {formData.trainingItems.map((item, index) => (
+            <div key={index} className="training-item">
+              <div className="form-group">
+                <label htmlFor={`training-${index}`}>Treino *</label>
+                <select
+                  id={`training-${index}`}
+                  value={item.trainingId}
+                  onChange={(e) => handleTrainingChange(index, e)}
+                  required
+                >
+                  <option value="">Selecione um treino</option>
+                  {trainings.map(training => (
+                    <option key={training.id} value={training.id}>
+                      {training.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Dias da Semana *</label>
+                <div className="days-checkboxes">
+                  {Object.values(DayOfWeek).map(day => (
+                    <label key={day} className="day-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={item.daysOfWeek.includes(day)}
+                        onChange={(e) => handleDayChange(index, day, e.target.checked)}
+                      />
+                      {day}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              {index > 0 && (
+                <button
+                  type="button"
+                  className="remove-button"
+                  onClick={() => removeTrainingItem(index)}
+                >
+                  Remover Treino
+                </button>
+              )}
+            </div>
+          ))}
+          
+          <button
+            type="button"
+            className="add-button"
+            onClick={addTrainingItem}
+          >
+            Adicionar Treino
+          </button>
+        </div>
+        
+        <div className="form-actions">
+          <button type="button" onClick={() => navigate('/training-plans')}>
+            Cancelar
+          </button>
+          <button type="submit" disabled={loading}>
+            {loading ? 'Criando...' : 'Criar Plano'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+export default TrainingPlanForm;
+```
+
+### 2.4 Componente de Visualização de Plano de Treino
+
+Vamos criar um componente para visualizar os detalhes do plano:
+
+```tsx
+// src/components/TrainingPlanDetails.tsx
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useTrainingPlans } from '../hooks/useTrainingPlans';
+import { useAuth } from '../contexts/AuthContext';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+const TrainingPlanDetails: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { getTrainingPlanById, deleteTrainingPlan, loading, error } = useTrainingPlans();
+  const [plan, setPlan] = useState<any>(null);
+  
+  useEffect(() => {
+    const fetchPlan = async () => {
+      if (!id) return;
+      
+      try {
+        const data = await getTrainingPlanById(parseInt(id));
+        setPlan(data);
+      } catch (err) {
+        // Erro já é tratado pelo hook
+      }
+    };
+    
+    fetchPlan();
+  }, [id, getTrainingPlanById]);
+  
+  const handleDelete = async () => {
+    if (!id || !window.confirm('Tem certeza que deseja excluir este plano?')) return;
+    
+    try {
+      await deleteTrainingPlan(parseInt(id));
+      navigate('/training-plans');
+    } catch (err) {
+      // Erro já é tratado pelo hook
+    }
+  };
+  
+  if (loading) {
+    return <div className="loading">Carregando...</div>;
+  }
+  
+  if (error) {
+    return <div className="error-message">{error}</div>;
+  }
+  
+  if (!plan) {
+    return <div className="not-found">Plano de treino não encontrado</div>;
+  }
+  
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return format(date, 'dd/MM/yyyy', { locale: ptBR });
+  };
+  
+  const getDayName = (day: string) => {
+    const days: Record<string, string> = {
+      'MONDAY': 'Segunda',
+      'TUESDAY': 'Terça',
+      'WEDNESDAY': 'Quarta',
+      'THURSDAY': 'Quinta',
+      'FRIDAY': 'Sexta',
+      'SATURDAY': 'Sábado',
+      'SUNDAY': 'Domingo'
+    };
+    
+    return days[day] || day;
+  };
+  
+  return (
+    <div className="training-plan-details">
+      <div className="header">
+        <h2>{plan.name}</h2>
+        <div className="status-badge">{plan.status}</div>
+      </div>
+      
+      {plan.description && (
+        <div className="description">
+          <p>{plan.description}</p>
+        </div>
+      )}
+      
+      <div className="info-section">
+        <div className="info-item">
+          <span className="label">Período:</span>
+          <span className="value">
+            {formatDate(plan.startDate)} a {formatDate(plan.endDate)}
+          </span>
+        </div>
+      </div>
+      
+      <div className="trainings-section">
+        <h3>Treinos</h3>
+        
+        {plan.trainingItems.length === 0 ? (
+          <p className="empty-state">Nenhum treino adicionado a este plano.</p>
+        ) : (
+          <div className="training-list">
+            {plan.trainingItems.map((item: any) => (
+              <div key={item.id} className="training-item">
+                <div className="training-header">
+                  <h4>{item.trainingName}</h4>
+                  <button
+                    className="view-button"
+                    onClick={() => navigate(`/trainings/${item.trainingId}`)}
+                  >
+                    Ver Treino
+                  </button>
+                </div>
+                
+                <div className="days">
+                  <span className="label">Dias:</span>
+                  <div className="day-tags">
+                    {item.daysOfWeek.map((day: string) => (
+                      <span key={day} className="day-tag">
+                        {getDayName(day)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {user?.userType === 'PERSONAL' && (
+        <div className="actions">
+          <button
+            className="edit-button"
+            onClick={() => navigate(`/training-plans/${plan.id}/edit`)}
+          >
+            Editar Plano
+          </button>
+          
+          <button
+            className="delete-button"
+            onClick={handleDelete}
+          >
+            Excluir Plano
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TrainingPlanDetails;
+```
+
+## 3. Testando a Implementação
+
+### 3.1 Testando o Backend
+
+Para testar o backend, você pode usar o Postman ou curl:
+
+```bash
+# Criar um plano de treino
+curl -X POST http://localhost:8080/api/training-plans \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer seu_token_jwt" \
+  -d '{
+    "name": "Plano de Hipertrofia",
+    "description": "Plano focado em ganho de massa muscular",
+    "studentId": 123,
+    "startDate": "2023-05-15T00:00:00Z",
+    "endDate": "2023-08-15T00:00:00Z",
+    "trainingItems": [
+      {
+        "trainingId": 1,
+        "daysOfWeek": ["MONDAY", "THURSDAY"]
+      },
+      {
+        "trainingId": 2,
+        "daysOfWeek": ["TUESDAY", "FRIDAY"]
+      }
+    ]
+  }'
+```
+
+### 3.2 Testando o Frontend
+
+Para testar o frontend, navegue até a página de planos de treino e tente criar um novo plano:
+
+1. Acesse a página de planos de treino
+2. Clique em "Novo Plano"
+3. Preencha o formulário com os dados necessários
+4. Adicione treinos ao plano
+5. Clique em "Criar Plano"
+
+## 4. Considerações de Segurança
+
+1. **Validação de Permissões**:
+   - Verificar se o usuário é do tipo PERSONAL para criar planos
+   - Verificar relacionamento personal-aluno antes de criar plano
+
+2. **Validação de Dados**:
+   - Validar datas (início deve ser anterior ao término)
+   - Validar existência de treinos e alunos
+
+3. **Controle de Acesso**:
+   - Personals só podem ver e editar planos criados por eles
+   - Alunos só podem ver planos atribuídos a eles
+
+## 5. Melhores Práticas
+
+1. **Organização de Código**:
+   - Separar responsabilidades entre controladores, serviços e repositórios
+   - Utilizar DTOs para transferência de dados
+
+2. **Experiência do Usuário**:
+   - Fornecer feedback claro sobre ações realizadas
+   - Implementar validação de formulários no frontend
+   - Exibir mensagens de erro amigáveis
+
+3. **Performance**:
+   - Implementar paginação para listas grandes
+   - Otimizar consultas ao banco de dados
+
+## Próximos Passos
+
+Agora que você implementou os planos de treino, você pode:
+
+1. [Implementar Autenticação](/tutorials/implement-authentication)
+2. [Integrar Gateway de Pagamento](/tutorials/integrate-payment-gateway)
+
+## Recursos Adicionais
+
+- [Documentação da API de Planos de Treino](/api-reference/trainings/plans)
+- [Exemplos de Código de Integração](/integration/trainings)
+- [Diagramas de Fluxo](/diagrams/training-creation)

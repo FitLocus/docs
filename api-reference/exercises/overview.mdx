@@ -1,0 +1,421 @@
+---
+title: 'Visão Geral de Exercícios'
+description: 'Endpoints para gerenciamento de exercícios no FitLocus'
+---
+
+# API de Exercícios
+
+A API de Exercícios do FitLocus fornece endpoints para criação, gerenciamento e execução de exercícios físicos na plataforma.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A API de Exercícios permite:
+    </p>
+    <ul>
+      <li>Criação e gerenciamento de exercícios personalizados</li>
+      <li>Categorização de exercícios por grupo muscular</li>
+      <li>Upload e gerenciamento de imagens demonstrativas</li>
+      <li>Busca e filtragem de exercícios</li>
+      <li>Registro de execuções e progresso</li>
+    </ul>
+  </div>
+</Frame>
+
+## Categorias de Exercícios
+
+O FitLocus categoriza os exercícios por grupo muscular principal:
+
+```java
+public enum ExerciseCategoryEnum {
+    PEITO,
+    COSTAS,
+    OMBRO,
+    BICEPS,
+    TRICEPS,
+    PERNAS,
+    ABDOMEN,
+    GLUTEOS,
+    CARDIO,
+    OUTRO
+}
+```
+
+## Modelo de Dados
+
+### ExerciseDTO
+
+O objeto ExerciseDTO é utilizado para transferência de dados de exercícios entre o cliente e o servidor:
+
+```json
+{
+  "id": 123,
+  "name": "Supino Reto",
+  "description": "Exercício para desenvolvimento do peitoral",
+  "category": "PEITO",
+  "imageUrl": "https://storage.googleapis.com/fitlocus-app-50458.appspot.com/exercises/123.jpg",
+  "createdBy": 456,
+  "createdAt": "2023-01-01T10:00:00Z",
+  "updatedAt": "2023-01-15T14:30:00Z",
+  "isPublic": true,
+  "difficulty": "INTERMEDIARIO",
+  "equipment": "BARRA",
+  "videoUrl": "https://www.youtube.com/watch?v=example",
+  "instructions": [
+    "Deite-se no banco",
+    "Segure a barra com as mãos afastadas",
+    "Desça a barra até o peito",
+    "Empurre a barra para cima"
+  ],
+  "muscleGroups": ["PEITO", "TRICEPS", "OMBRO"]
+}
+```
+
+### ExerciseFilterRequest
+
+Objeto utilizado para filtrar exercícios na busca:
+
+```json
+{
+  "category": "PEITO",
+  "name": "supino",
+  "createdBy": 456,
+  "isPublic": true,
+  "difficulty": "INTERMEDIARIO",
+  "equipment": "BARRA",
+  "page": 0,
+  "size": 10,
+  "sort": "name,asc"
+}
+```
+
+### ExerciseExecutionDTO
+
+Objeto que representa a execução de um exercício:
+
+```json
+{
+  "id": 789,
+  "exerciseId": 123,
+  "userId": 456,
+  "trainingId": 101,
+  "sets": [
+    {
+      "repetitions": 12,
+      "weight": 60.0,
+      "completed": true
+    },
+    {
+      "repetitions": 10,
+      "weight": 65.0,
+      "completed": true
+    },
+    {
+      "repetitions": 8,
+      "weight": 70.0,
+      "completed": true
+    }
+  ],
+  "notes": "Sentindo boa ativação no peitoral",
+  "executedAt": "2023-05-20T15:30:00Z",
+  "duration": 300,
+  "personalRecord": true
+}
+```
+
+## Endpoints Principais
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/exercises` | Lista exercícios com filtros opcionais |
+| GET | `/exercises/{id}` | Obtém detalhes de um exercício específico |
+| POST | `/exercises` | Cria um novo exercício |
+| PUT | `/exercises/{id}` | Atualiza um exercício existente |
+| DELETE | `/exercises/{id}` | Remove um exercício |
+| GET | `/exercises/categories` | Lista todas as categorias de exercícios |
+| GET | `/exercises/my-exercises` | Lista exercícios criados pelo usuário autenticado |
+| POST | `/exercises/{id}/execution` | Registra uma execução de exercício |
+| GET | `/exercises/{id}/executions` | Lista execuções de um exercício específico |
+| GET | `/exercises/executions/user/{userId}` | Lista execuções de exercícios de um usuário |
+
+## Detalhes de Implementação
+
+### Autenticação
+
+Todos os endpoints, exceto GET `/exercises` e GET `/exercises/{id}` para exercícios públicos, requerem autenticação via token JWT no cabeçalho `Authorization`:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Para mais detalhes sobre autenticação, consulte a [documentação de autenticação](/api-reference/authentication).
+
+### Controle de Acesso
+
+O acesso aos endpoints é controlado com base no tipo de usuário e propriedade do recurso:
+
+- Exercícios públicos podem ser visualizados por qualquer usuário
+- Exercícios privados só podem ser visualizados por seu criador
+- Apenas o criador de um exercício pode atualizá-lo ou removê-lo
+- Personal trainers podem criar exercícios públicos ou privados
+- Alunos só podem criar exercícios privados
+
+### Upload de Imagens
+
+A criação e atualização de exercícios suporta upload de imagens demonstrativas através de requisições `multipart/form-data`:
+
+```java
+@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+public ResponseEntity<ExerciseDTO> createExercise(
+        @RequestPart("exercise") ExerciseDTO exerciseDTO,
+        @RequestPart("file") MultipartFile file
+)
+```
+
+### Paginação e Ordenação
+
+Endpoints que retornam listas de exercícios suportam paginação e ordenação através dos seguintes parâmetros:
+
+- `page`: Número da página (começando em 0)
+- `size`: Tamanho da página (número de itens por página)
+- `sort`: Campo e direção de ordenação (ex: `name,asc`)
+
+## Exemplos de Uso
+
+### Listar Exercícios
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises?category=PEITO&page=0&size=10&sort=name,asc' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Obter Detalhes de um Exercício
+
+```bash
+curl -X GET \
+  'http://localhost:8080/api/exercises/123' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+```
+
+### Criar um Novo Exercício
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/exercises' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'exercise={
+    "name": "Supino Inclinado",
+    "description": "Exercício para desenvolvimento da parte superior do peitoral",
+    "category": "PEITO",
+    "isPublic": true,
+    "difficulty": "INTERMEDIARIO",
+    "equipment": "BARRA",
+    "instructions": [
+      "Deite-se no banco inclinado",
+      "Segure a barra com as mãos afastadas",
+      "Desça a barra até o peito",
+      "Empurre a barra para cima"
+    ],
+    "muscleGroups": ["PEITO", "TRICEPS", "OMBRO"]
+  }' \
+  -F 'file=@/caminho/para/imagem.jpg'
+```
+
+### Registrar Execução de Exercício
+
+```bash
+curl -X POST \
+  'http://localhost:8080/api/exercises/123/execution' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "trainingId": 101,
+    "sets": [
+      {
+        "repetitions": 12,
+        "weight": 60.0,
+        "completed": true
+      },
+      {
+        "repetitions": 10,
+        "weight": 65.0,
+        "completed": true
+      },
+      {
+        "repetitions": 8,
+        "weight": 70.0,
+        "completed": true
+      }
+    ],
+    "notes": "Sentindo boa ativação no peitoral",
+    "duration": 300
+  }'
+```
+
+## Códigos de Status
+
+| Código | Descrição |
+|--------|-----------|
+| 200 | OK - A requisição foi bem-sucedida |
+| 201 | Created - Um novo exercício ou execução foi criado com sucesso |
+| 400 | Bad Request - A requisição contém dados inválidos |
+| 401 | Unauthorized - Autenticação necessária |
+| 403 | Forbidden - Sem permissão para acessar o recurso |
+| 404 | Not Found - Exercício não encontrado |
+| 500 | Internal Server Error - Erro interno do servidor |
+
+## Considerações de Segurança
+
+1. **Validação de Dados**: Todos os dados de entrada são validados para prevenir injeção de dados maliciosos.
+
+2. **Controle de Acesso**: Verificações rigorosas garantem que um usuário só possa acessar e modificar seus próprios exercícios ou exercícios públicos.
+
+3. **Validação de Arquivos**: Uploads de imagem são validados quanto ao tipo, tamanho e conteúdo para prevenir ataques.
+
+4. **Sanitização de Dados**: Todos os dados de entrada são sanitizados antes de serem armazenados ou exibidos.
+
+5. **HTTPS**: Todas as comunicações com a API devem ser realizadas através de HTTPS.
+
+## Implementação no Frontend
+
+### Componente de Listagem de Exercícios
+
+```tsx
+// Exemplo de componente de listagem de exercícios em React
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const ExerciseList = () => {
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    category: '',
+    name: '',
+    isPublic: true,
+    page: 0,
+    size: 10
+  });
+  
+  useEffect(() => {
+    const fetchExercises = async () => {
+      try {
+        setLoading(true);
+        
+        // Construir query string a partir dos filtros
+        const queryParams = new URLSearchParams();
+        if (filters.category) queryParams.append('category', filters.category);
+        if (filters.name) queryParams.append('name', filters.name);
+        if (filters.isPublic !== undefined) queryParams.append('isPublic', filters.isPublic.toString());
+        queryParams.append('page', filters.page.toString());
+        queryParams.append('size', filters.size.toString());
+        queryParams.append('sort', 'name,asc');
+        
+        const response = await axios.get(`/exercises?${queryParams.toString()}`);
+        setExercises(response.data.content);
+        setLoading(false);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Erro ao carregar exercícios');
+        setLoading(false);
+      }
+    };
+    
+    fetchExercises();
+  }, [filters]);
+  
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value,
+      page: 0 // Reset page when filters change
+    }));
+  };
+  
+  if (loading) return <div>Carregando...</div>;
+  if (error) return <div>Erro: {error}</div>;
+  
+  return (
+    <div className="exercise-list">
+      <div className="filters">
+        <select name="category" value={filters.category} onChange={handleFilterChange}>
+          <option value="">Todas as categorias</option>
+          <option value="PEITO">Peito</option>
+          <option value="COSTAS">Costas</option>
+          <option value="OMBRO">Ombro</option>
+          <option value="BICEPS">Bíceps</option>
+          <option value="TRICEPS">Tríceps</option>
+          <option value="PERNAS">Pernas</option>
+          <option value="ABDOMEN">Abdômen</option>
+          <option value="GLUTEOS">Glúteos</option>
+          <option value="CARDIO">Cardio</option>
+          <option value="OUTRO">Outro</option>
+        </select>
+        
+        <input
+          type="text"
+          name="name"
+          placeholder="Buscar por nome"
+          value={filters.name}
+          onChange={handleFilterChange}
+        />
+        
+        <label>
+          <input
+            type="checkbox"
+            name="isPublic"
+            checked={filters.isPublic}
+            onChange={(e) => setFilters(prev => ({
+              ...prev,
+              isPublic: e.target.checked,
+              page: 0
+            }))}
+          />
+          Apenas exercícios públicos
+        </label>
+      </div>
+      
+      <div className="exercise-grid">
+        {exercises.map(exercise => (
+          <div key={exercise.id} className="exercise-card">
+            <img src={exercise.imageUrl || '/default-exercise.png'} alt={exercise.name} />
+            <h3>{exercise.name}</h3>
+            <p className="category">{exercise.category}</p>
+            <p className="description">{exercise.description}</p>
+            <button className="view-details">Ver Detalhes</button>
+          </div>
+        ))}
+      </div>
+      
+      <div className="pagination">
+        <button
+          disabled={filters.page === 0}
+          onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+        >
+          Anterior
+        </button>
+        <span>Página {filters.page + 1}</span>
+        <button
+          disabled={exercises.length < filters.size}
+          onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+        >
+          Próxima
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default ExerciseList;
+```
+
+## Próximos Passos
+
+Para mais detalhes sobre endpoints específicos, consulte:
+
+- [Criação e Gerenciamento de Exercícios](/api-reference/exercises/create)
+- [Execução e Progresso de Exercícios](/api-reference/exercises/execution)
