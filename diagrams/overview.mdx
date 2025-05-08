@@ -1,0 +1,110 @@
+---
+title: 'Visão Geral de Diagramas'
+description: 'Diagramas dos principais fluxos do sistema FitLocus'
+---
+
+# Diagramas do FitLocus
+
+Esta seção contém diagramas detalhados que ilustram os principais fluxos e arquitetura do sistema FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      Os diagramas do FitLocus incluem:
+    </p>
+    <ul>
+      <li>Fluxos de autenticação e autorização</li>
+      <li>Processos de criação e execução de treinos</li>
+      <li>Relacionamento entre personal trainers e alunos</li>
+      <li>Processamento de pagamentos e assinaturas</li>
+      <li>Arquitetura do sistema e comunicação entre componentes</li>
+    </ul>
+  </div>
+</Frame>
+
+## Tipos de Diagramas
+
+O FitLocus utiliza vários tipos de diagramas para documentar diferentes aspectos do sistema:
+
+### Diagramas de Sequência
+
+Os diagramas de sequência mostram a interação entre componentes do sistema ao longo do tempo, ilustrando o fluxo de mensagens e a ordem das operações.
+
+<Frame>
+  <img src="/images/diagrams/sequence-example.png" alt="Exemplo de Diagrama de Sequência" />
+</Frame>
+
+### Diagramas de Fluxo
+
+Os diagramas de fluxo ilustram os processos de negócio e fluxos de trabalho do sistema, mostrando as etapas e decisões envolvidas em cada processo.
+
+<Frame>
+  <img src="/images/diagrams/flow-example.png" alt="Exemplo de Diagrama de Fluxo" />
+</Frame>
+
+### Diagramas de Arquitetura
+
+Os diagramas de arquitetura mostram a estrutura de alto nível do sistema, incluindo componentes, serviços e suas interações.
+
+<Frame>
+  <img src="/images/diagrams/architecture-example.png" alt="Exemplo de Diagrama de Arquitetura" />
+</Frame>
+
+### Diagramas de Entidade-Relacionamento
+
+Os diagramas ER mostram a estrutura do banco de dados, incluindo tabelas, relacionamentos e cardinalidades.
+
+<Frame>
+  <img src="/images/diagrams/er-example.png" alt="Exemplo de Diagrama ER" />
+</Frame>
+
+## Diagramas Disponíveis
+
+Esta seção contém diagramas detalhados para os principais fluxos do sistema FitLocus:
+
+- [Fluxo de Autenticação](/diagrams/authentication-flow): Processo de registro, login e renovação de tokens
+- [Criação de Treinos](/diagrams/training-creation): Fluxo de criação e atribuição de treinos
+- [Relacionamento Personal-Aluno](/diagrams/personal-student-relationship): Processo de convite e aceitação
+- [Processamento de Pagamentos](/diagrams/payment-processing): Fluxo de assinatura e processamento de pagamentos
+
+## Ferramentas Utilizadas
+
+Os diagramas do FitLocus são criados utilizando as seguintes ferramentas:
+
+- **Lucidchart**: Para diagramas de fluxo e sequência
+- **Draw.io**: Para diagramas de arquitetura
+- **dbdiagram.io**: Para diagramas de entidade-relacionamento
+- **Mermaid**: Para diagramas embutidos na documentação
+
+## Convenções de Diagramas
+
+Para manter a consistência nos diagramas do FitLocus, seguimos estas convenções:
+
+### Cores
+
+- **Verde (#B4ED00)**: Ações bem-sucedidas, componentes principais
+- **Cinza Escuro (#202020)**: Componentes de sistema, serviços
+- **Branco (#F9F9F9)**: Texto, elementos de interface
+- **Vermelho (#FF5252)**: Erros, exceções, ações negativas
+- **Azul (#4285F4)**: Dados, informações, elementos neutros
+
+### Símbolos
+
+- **Retângulos**: Componentes, serviços, entidades
+- **Círculos**: Pontos de início/fim, estados
+- **Diamantes**: Pontos de decisão
+- **Setas**: Fluxo de dados, sequência de ações
+
+### Nomenclatura
+
+- Nomes de componentes em PascalCase (ex: AuthService)
+- Ações em camelCase (ex: createTraining)
+- Entidades de banco de dados em snake_case (ex: training_plan)
+
+## Atualizações de Diagramas
+
+Os diagramas do FitLocus são atualizados regularmente para refletir mudanças na arquitetura e nos processos do sistema. A data da última atualização é indicada em cada diagrama.
+
+Para solicitar atualizações ou novos diagramas, entre em contato com a equipe de documentação em documentacao@fitlocus.com.

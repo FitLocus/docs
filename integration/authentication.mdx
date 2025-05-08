@@ -1,0 +1,727 @@
+---
+title: 'Integração de Autenticação'
+description: 'Exemplos de código para integração com o sistema de autenticação do FitLocus'
+---
+
+# Integração de Autenticação
+
+Este guia fornece exemplos práticos para integrar sua aplicação com o sistema de autenticação do FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A integração de autenticação com o FitLocus inclui:
+    </p>
+    <ul>
+      <li>Registro de usuários</li>
+      <li>Login com email e senha</li>
+      <li>Login com Firebase Authentication</li>
+      <li>Gerenciamento de tokens JWT</li>
+      <li>Renovação de tokens</li>
+      <li>Logout</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos Técnicos
+
+Para integrar com o sistema de autenticação do FitLocus, você precisará:
+
+- **Backend**:
+  - Java 21
+  - Spring Security
+  - JWT (java-jwt)
+  - Firebase Admin SDK (opcional, para autenticação social)
+
+- **Frontend**:
+  - Axios ou fetch para requisições HTTP
+  - Biblioteca de gerenciamento de estado (React Context, Redux, etc.)
+  - Firebase Authentication SDK (opcional, para autenticação social)
+
+## Exemplos de Integração
+
+### Backend (Java 21 + Spring Boot)
+
+#### Configuração de Segurança
+
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, 
+                          AuthenticationProvider authenticationProvider) {
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.authenticationProvider = authenticationProvider;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            .authenticationProvider(authenticationProvider)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+}
+```
+
+#### Serviço de Autenticação
+
+```java
+@Service
+public class AuthenticationService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+
+    public AuthenticationService(UserRepository userRepository,
+                                PasswordEncoder passwordEncoder,
+                                JwtService jwtService) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+    }
+
+    public AuthResponse register(RegisterRequest request) {
+        var user = User.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .userType(request.getUserType())
+                .build();
+        
+        userRepository.save(user);
+        
+        var token = jwtService.generateToken(user);
+        
+        return AuthResponse.builder()
+                .token(token)
+                .user(UserDTO.fromEntity(user))
+                .userId(user.getId())
+                .success(true)
+                .build();
+    }
+
+    public AuthResponse authenticate(LoginRequest request) {
+        var user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+        
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Senha inválida");
+        }
+        
+        var token = jwtService.generateToken(user);
+        
+        return AuthResponse.builder()
+                .token(token)
+                .user(UserDTO.fromEntity(user))
+                .userId(user.getId())
+                .success(true)
+                .build();
+    }
+
+    public AuthResponse refreshToken(String token) {
+        var username = jwtService.extractUsername(token);
+        var user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+        
+        var newToken = jwtService.generateToken(user);
+        
+        return AuthResponse.builder()
+                .token(newToken)
+                .success(true)
+                .build();
+    }
+}
+```
+
+#### Serviço JWT
+
+```java
+@Service
+public class JwtService {
+
+    private static final String SECRET_KEY = "${jwt.secret}";
+    private static final long EXPIRATION_TIME = 86400000; // 24 hours
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    public String generateToken(UserDetails userDetails) {
+        return generateToken(new HashMap<>(), userDetails);
+    }
+
+    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        return JWT.create()
+                .withSubject(userDetails.getUsername())
+                .withIssuedAt(new Date(System.currentTimeMillis()))
+                .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .withClaim("userType", ((User) userDetails).getUserType().name())
+                .sign(Algorithm.HMAC256(SECRET_KEY));
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+    }
+
+    private boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    private Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return JWT.require(Algorithm.HMAC256(SECRET_KEY))
+                .build()
+                .verify(token)
+                .getClaims();
+    }
+}
+```
+
+### Frontend (React + TypeScript)
+
+#### Configuração do Cliente HTTP
+
+```typescript
+// src/services/api.ts
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:8080/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Interceptor para adicionar token JWT
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor para renovar token expirado
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.post('http://localhost:8080/api/auth/refresh-token', {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        localStorage.setItem('token', response.data.token);
+        
+        originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
+        return axios(originalRequest);
+      } catch (err) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return Promise.reject(err);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+```
+
+#### Serviço de Autenticação
+
+```typescript
+// src/services/auth.service.ts
+import api from './api';
+
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+  userType: 'ALUNO' | 'PERSONAL';
+  requestLocation: 'APP' | 'WEB';
+  confirmed: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  userType: 'ALUNO' | 'PERSONAL';
+  profilePicture?: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+  userId: number;
+  success: boolean;
+}
+
+class AuthService {
+  async register(data: RegisterRequest): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', data);
+    this.setSession(response.data);
+    return response.data;
+  }
+
+  async login(data: LoginRequest): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/login', data);
+    this.setSession(response.data);
+    return response.data;
+  }
+
+  async firebaseLogin(firebaseToken: string): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/firebase-login', { firebaseToken });
+    this.setSession(response.data);
+    return response.data;
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      this.clearSession();
+    }
+  }
+
+  isAuthenticated(): boolean {
+    return !!localStorage.getItem('token');
+  }
+
+  getUser(): User | null {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  }
+
+  private setSession(authResponse: AuthResponse): void {
+    localStorage.setItem('token', authResponse.token);
+    localStorage.setItem('user', JSON.stringify(authResponse.user));
+  }
+
+  private clearSession(): void {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }
+}
+
+export default new AuthService();
+```
+
+#### Contexto de Autenticação
+
+```typescript
+// src/contexts/AuthContext.tsx
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import authService, { User, LoginRequest, RegisterRequest } from '../services/auth.service';
+
+interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (data: LoginRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<void>;
+  firebaseLogin: (token: string) => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const initAuth = () => {
+      const storedUser = authService.getUser();
+      if (storedUser) {
+        setUser(storedUser);
+      }
+      setIsLoading(false);
+    };
+
+    initAuth();
+  }, []);
+
+  const login = async (data: LoginRequest) => {
+    setIsLoading(true);
+    try {
+      const response = await authService.login(data);
+      setUser(response.user);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (data: RegisterRequest) => {
+    setIsLoading(true);
+    try {
+      const response = await authService.register(data);
+      setUser(response.user);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const firebaseLogin = async (token: string) => {
+    setIsLoading(true);
+    try {
+      const response = await authService.firebaseLogin(token);
+      setUser(response.user);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setIsLoading(true);
+    try {
+      await authService.logout();
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isLoading,
+        login,
+        register,
+        firebaseLogin,
+        logout,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+```
+
+#### Componente de Login
+
+```typescript
+// src/components/LoginForm.tsx
+import React, { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+const LoginForm: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      await login({ email, password });
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao fazer login');
+    }
+  };
+
+  return (
+    <div className="login-form">
+      <h2>Login</h2>
+      {error && <div className="error-message">{error}</div>}
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label htmlFor="email">Email</label>
+          <input
+            type="email"
+            id="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="password">Senha</label>
+          <input
+            type="password"
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? 'Carregando...' : 'Entrar'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default LoginForm;
+```
+
+## Integração com Firebase Authentication
+
+### Configuração do Firebase
+
+```typescript
+// src/firebase/config.ts
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAZVvc5cy1pSD4iZ_035IzIcK__HuKDGfY",
+  authDomain: "fitlocus-app-50458.firebaseapp.com",
+  projectId: "fitlocus-app-50458",
+  storageBucket: "fitlocus-app-50458.firebasestorage.app",
+  messagingSenderId: "927725928375",
+  appId: "1:927725928375:web:903097a6978f1130607232"
+};
+
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export default app;
+```
+
+### Componente de Login com Firebase
+
+```typescript
+// src/components/FirebaseLoginButton.tsx
+import React, { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { auth } from '../firebase/config';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
+
+const FirebaseLoginButton: React.FC = () => {
+  const [error, setError] = useState('');
+  const { firebaseLogin, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const firebaseToken = await result.user.getIdToken();
+      
+      await firebaseLogin(firebaseToken);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError('Erro ao fazer login com Google');
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="firebase-login">
+      {error && <div className="error-message">{error}</div>}
+      <button 
+        onClick={handleGoogleLogin} 
+        disabled={isLoading}
+        className="google-login-button"
+      >
+        {isLoading ? 'Carregando...' : 'Entrar com Google'}
+      </button>
+    </div>
+  );
+};
+
+export default FirebaseLoginButton;
+```
+
+## Proteção de Rotas
+
+### Componente de Rota Protegida
+
+```typescript
+// src/components/ProtectedRoute.tsx
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+interface ProtectedRouteProps {
+  requiredUserType?: 'ALUNO' | 'PERSONAL';
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredUserType }) => {
+  const { isAuthenticated, user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Carregando...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredUserType && user?.userType !== requiredUserType) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  return <Outlet />;
+};
+
+export default ProtectedRoute;
+```
+
+### Configuração de Rotas
+
+```typescript
+// src/App.tsx
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import DashboardPage from './pages/DashboardPage';
+import ProfilePage from './pages/ProfilePage';
+import UnauthorizedPage from './pages/UnauthorizedPage';
+import ProtectedRoute from './components/ProtectedRoute';
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
+          
+          <Route element={<ProtectedRoute requiredUserType="PERSONAL" />}>
+            <Route path="/students" element={<StudentsPage />} />
+          </Route>
+          
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+};
+
+export default App;
+```
+
+## Melhores Práticas
+
+### Segurança
+
+1. **Armazenamento de Tokens**:
+   - Em aplicações web, use cookies HttpOnly para armazenar tokens JWT
+   - Em aplicações móveis, use SecureStorage ou KeyStore
+
+2. **Renovação de Tokens**:
+   - Implemente renovação automática de tokens expirados
+   - Utilize refresh tokens para renovação segura
+
+3. **Proteção contra CSRF**:
+   - Implemente tokens CSRF para formulários
+   - Utilize SameSite=Strict para cookies
+
+### Performance
+
+1. **Caching**:
+   - Armazene informações do usuário em cache para reduzir requisições
+   - Implemente expiração de cache para manter dados atualizados
+
+2. **Lazy Loading**:
+   - Carregue componentes de autenticação sob demanda
+   - Utilize code splitting para reduzir o tamanho inicial do bundle
+
+### Experiência do Usuário
+
+1. **Feedback de Carregamento**:
+   - Exiba indicadores de carregamento durante operações de autenticação
+   - Forneça mensagens de erro claras e acionáveis
+
+2. **Persistência de Sessão**:
+   - Mantenha o usuário logado entre sessões (se desejado)
+   - Ofereça opção "Lembrar-me" para login persistente
+
+## Solução de Problemas
+
+### Erros Comuns
+
+| Erro | Causa Provável | Solução |
+|------|----------------|---------|
+| 401 Unauthorized | Token expirado ou inválido | Renovar token ou redirecionar para login |
+| 403 Forbidden | Permissões insuficientes | Verificar tipo de usuário e permissões |
+| CORS error | Configuração incorreta de CORS | Configurar CORS no backend para permitir origem |
+| Network error | Problemas de conectividade | Implementar retry e feedback ao usuário |
+
+### Depuração
+
+Para depurar problemas de autenticação:
+
+1. Verifique o token JWT em [jwt.io](https://jwt.io)
+2. Inspecione requisições de rede no DevTools
+3. Verifique logs do servidor para erros de autenticação
+4. Teste endpoints com Postman ou Insomnia
+
+## Recursos Adicionais
+
+- [Documentação do Spring Security](https://docs.spring.io/spring-security/reference/index.html)
+- [Guia de Autenticação JWT](https://jwt.io/introduction)
+- [Documentação do Firebase Authentication](https://firebase.google.com/docs/auth)
+- [Guia de Segurança para React](https://reactjs.org/docs/security.html)

@@ -49,6 +49,37 @@
               "business/personal-student-relationship",
               "business/training-management"
             ]
+          },
+          {
+            "group": "Exemplos de Integração",
+            "pages": [
+              "integration/overview",
+              "integration/authentication",
+              "integration/users",
+              "integration/exercises",
+              "integration/trainings",
+              "integration/payments"
+            ]
+          },
+          {
+            "group": "Diagramas",
+            "pages": [
+              "diagrams/overview",
+              "diagrams/authentication-flow",
+              "diagrams/training-creation",
+              "diagrams/personal-student-relationship",
+              "diagrams/payment-processing"
+            ]
+          },
+          {
+            "group": "Tutoriais",
+            "pages": [
+              "tutorials/overview",
+              "tutorials/setup-environment",
+              "tutorials/create-training-plan",
+              "tutorials/implement-authentication",
+              "tutorials/integrate-payment-gateway"
+            ]
           }
         ]
       },

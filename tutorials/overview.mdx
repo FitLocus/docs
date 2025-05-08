@@ -1,0 +1,140 @@
+---
+title: 'Visão Geral de Tutoriais'
+description: 'Tutoriais passo a passo para implementações no FitLocus'
+---
+
+# Tutoriais do FitLocus
+
+Esta seção contém tutoriais passo a passo para ajudar desenvolvedores a implementar e integrar com a plataforma FitLocus.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      Os tutoriais do FitLocus incluem:
+    </p>
+    <ul>
+      <li>Configuração do ambiente de desenvolvimento</li>
+      <li>Implementação de autenticação e autorização</li>
+      <li>Criação e gerenciamento de planos de treino</li>
+      <li>Integração com gateway de pagamento</li>
+      <li>Implementação de funcionalidades específicas</li>
+    </ul>
+  </div>
+</Frame>
+
+## Requisitos Técnicos
+
+Para seguir os tutoriais do FitLocus, você precisará:
+
+### Ambiente de Desenvolvimento
+
+- **Backend**:
+  - Java 21 (JDK)
+  - Gradle 8.0+
+  - PostgreSQL 14+
+  - IDE (recomendado: IntelliJ IDEA)
+
+- **Frontend**:
+  - Node.js 18+
+  - npm/yarn/pnpm
+  - IDE (recomendado: VS Code)
+
+- **Mobile**:
+  - React Native CLI
+  - Android Studio / Xcode
+  - Capacitor
+
+### Conhecimentos Recomendados
+
+- Java e Spring Boot
+- TypeScript e React/React Native
+- REST APIs
+- Autenticação JWT
+- SQL básico
+
+## Estrutura dos Tutoriais
+
+Cada tutorial segue uma estrutura consistente:
+
+1. **Objetivos**: O que você aprenderá e construirá
+2. **Requisitos**: Conhecimentos e ferramentas necessários
+3. **Configuração**: Preparação do ambiente
+4. **Passos**: Instruções detalhadas com exemplos de código
+5. **Verificação**: Como testar se a implementação está correta
+6. **Solução de Problemas**: Erros comuns e suas soluções
+7. **Próximos Passos**: Sugestões para expandir o que foi aprendido
+
+## Tutoriais Disponíveis
+
+Esta seção contém tutoriais detalhados para diferentes aspectos do desenvolvimento com o FitLocus:
+
+- [Configuração do Ambiente](/tutorials/setup-environment): Preparação do ambiente de desenvolvimento
+- [Criação de Plano de Treino](/tutorials/create-training-plan): Implementação de planos de treino
+- [Implementação de Autenticação](/tutorials/implement-authentication): Fluxo completo de autenticação
+- [Integração de Gateway de Pagamento](/tutorials/integrate-payment-gateway): Processamento de pagamentos
+
+## Convenções de Código
+
+Nos tutoriais do FitLocus, seguimos estas convenções:
+
+### Java (Backend)
+
+```java
+// Exemplo de classe Java com convenções do FitLocus
+@RestController
+@RequestMapping("/api/v1/trainings")
+public class TrainingController {
+    
+    private final TrainingService trainingService;
+    
+    public TrainingController(TrainingService trainingService) {
+        this.trainingService = trainingService;
+    }
+    
+    @GetMapping("/{id}")
+    public ResponseEntity<TrainingDTO> getTraining(@PathVariable Long id) {
+        return ResponseEntity.ok(trainingService.getTrainingById(id));
+    }
+}
+```
+
+### TypeScript (Frontend)
+
+```typescript
+// Exemplo de componente React com convenções do FitLocus
+import React, { useState, useEffect } from 'react';
+import { TrainingService } from '../services/TrainingService';
+import { TrainingCard } from '../components/TrainingCard';
+
+export const TrainingList: React.FC = () => {
+  const [trainings, setTrainings] = useState([]);
+  
+  useEffect(() => {
+    const fetchTrainings = async () => {
+      const response = await TrainingService.getTrainings();
+      setTrainings(response.data);
+    };
+    
+    fetchTrainings();
+  }, []);
+  
+  return (
+    <div className="training-list">
+      {trainings.map(training => (
+        <TrainingCard key={training.id} training={training} />
+      ))}
+    </div>
+  );
+};
+```
+
+## Suporte e Feedback
+
+Se você encontrar problemas ao seguir os tutoriais ou tiver sugestões para melhorá-los, entre em contato com nossa equipe de documentação:
+
+- Email: documentacao@fitlocus.com
+- GitHub: [FitLocus Backend](https://github.com/logoscti/fitlocus-backend)
+
+Estamos constantemente atualizando e expandindo nossos tutoriais com base no feedback dos desenvolvedores.
