@@ -16,13 +16,24 @@ A API de Pagamentos e Assinaturas do FitLocus fornece endpoints para gerenciamen
     </p>
     <ul>
       <li>Gerenciamento de planos de assinatura</li>
-      <li>Processamento de pagamentos</li>
+      <li>Processamento de pagamentos via cartão de crédito (Stripe) e PIX (AbacatePay)</li>
       <li>Consulta de histórico de transações</li>
       <li>Gerenciamento de assinaturas ativas</li>
       <li>Emissão de faturas e recibos</li>
     </ul>
   </div>
 </Frame>
+
+## Métodos de Pagamento Suportados
+
+<CardGroup cols={2}>
+  <Card title="Cartão de Crédito" icon="credit-card">
+    Processamento de pagamentos com cartão de crédito via Stripe.
+  </Card>
+  <Card title="PIX" icon="qrcode">
+    Pagamentos instantâneos via PIX utilizando AbacatePay.
+  </Card>
+</CardGroup>
 
 ## Modelo de Dados
 
