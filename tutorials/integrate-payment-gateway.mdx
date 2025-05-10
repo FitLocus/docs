@@ -5,7 +5,7 @@ description: 'Tutorial passo a passo para integrar gateway de pagamento no FitLo
 
 # Integração de Gateway de Pagamento
 
-Este tutorial guiará você através do processo de integração do gateway de pagamento Stripe no ecossistema FitLocus.
+Este tutorial guiará você através do processo de integração dos gateways de pagamento Stripe (cartão de crédito) e AbacatePay (PIX) no ecossistema FitLocus.
 
 ## Visão Geral
 
@@ -15,11 +15,11 @@ Este tutorial guiará você através do processo de integração do gateway de p
       Neste tutorial, você aprenderá a:
     </p>
     <ul>
-      <li>Configurar o Stripe no backend</li>
-      <li>Implementar processamento de pagamentos</li>
+      <li>Configurar o Stripe e AbacatePay no backend</li>
+      <li>Implementar processamento de pagamentos com cartão de crédito e PIX</li>
       <li>Gerenciar assinaturas recorrentes</li>
       <li>Implementar webhooks para eventos de pagamento</li>
-      <li>Integrar o checkout do Stripe no frontend</li>
+      <li>Integrar o checkout de ambos os gateways no frontend</li>
     </ul>
   </div>
 </Frame>
@@ -33,21 +33,24 @@ Antes de começar, certifique-se de ter:
 - Conhecimento básico de React/TypeScript (frontend)
 - Acesso aos repositórios do FitLocus
 - Conta no Stripe (você pode criar uma conta de teste gratuita)
+- Conta no AbacatePay (você pode criar uma conta de teste gratuita)
 
-## 1. Configuração do Stripe
+## 1. Configuração dos Gateways de Pagamento
 
-### 1.1 Criação de Conta no Stripe
+### 1.1 Configuração do Stripe (Cartão de Crédito)
+
+#### 1.1.1 Criação de Conta no Stripe
 
 1. Acesse [Stripe.com](https://stripe.com/) e crie uma conta
 2. No dashboard do Stripe, vá para "Developers" > "API keys"
 3. Anote sua chave pública (`publishable key`) e chave secreta (`secret key`)
 
-### 1.2 Configuração do Webhook
+#### 1.1.2 Configuração do Webhook do Stripe
 
 1. No dashboard do Stripe, vá para "Developers" > "Webhooks"
 2. Clique em "Add endpoint"
 3. Para desenvolvimento local, você pode usar [Stripe CLI](https://stripe.com/docs/stripe-cli) para encaminhar eventos para seu ambiente local
-4. Para produção, configure o endpoint como `https://seu-dominio.com/api/payments/webhook`
+4. Para produção, configure o endpoint como `https://seu-dominio.com/api/webhooks/stripe`
 5. Selecione os eventos que deseja receber (recomendados):
    - `payment_intent.succeeded`
    - `payment_intent.payment_failed`
@@ -57,6 +60,25 @@ Antes de começar, certifique-se de ter:
    - `invoice.payment_succeeded`
    - `invoice.payment_failed`
 6. Anote o "Signing Secret" para validação de webhooks
+
+### 1.2 Configuração do AbacatePay (PIX)
+
+#### 1.2.1 Criação de Conta no AbacatePay
+
+1. Acesse [AbacatePay.com](https://abacatepay.com/) e crie uma conta
+2. No dashboard do AbacatePay, vá para "Configurações" > "API"
+3. Anote sua chave de API (`api_key`) e segredo de API (`api_secret`)
+
+#### 1.2.2 Configuração do Webhook do AbacatePay
+
+1. No dashboard do AbacatePay, vá para "Configurações" > "Webhooks"
+2. Clique em "Adicionar webhook"
+3. Para produção, configure o endpoint como `https://seu-dominio.com/api/webhooks/abacatepay/payment`
+4. Selecione os eventos que deseja receber:
+   - `pix.paid`
+   - `pix.expired`
+   - `pix.cancelled`
+5. Anote o "Segredo do Webhook" para validação de webhooks
 
 ## 2. Implementação do Backend
 
@@ -81,7 +103,9 @@ stripe.api.key=sua_chave_secreta_stripe
 stripe.webhook.secret=seu_segredo_webhook_stripe
 ```
 
-### 2.3 Modelo de Assinatura
+### 2.3 Modelos de Dados
+
+#### 2.3.1 Modelo de Assinatura
 
 Crie o modelo de dados para assinaturas:
 
@@ -112,9 +136,13 @@ public class Subscription {
 
     @Column(name = "stripe_subscription_id")
     private String stripeSubscriptionId;
+    
+    @Column(name = "abacatepay_customer_id")
+    private String abacatepayCustomerId;
 
-    @Column(name = "payment_method")
-    private String paymentMethod;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false)
+    private PaymentMethodType paymentMethod;
 
     @Column(nullable = false)
     private String status;
@@ -128,9 +156,57 @@ public class Subscription {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }
+
+public enum PaymentMethodType {
+    CREDIT_CARD,
+    PIX
+}
 ```
 
-### 2.4 Serviço de Pagamento (Resumido)
+#### 2.3.2 Modelo de Transação PIX
+
+Crie o modelo para transações PIX:
+
+```java
+@Entity
+@Table(name = "pix_transaction")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PixTransaction {
+
+    @Id
+    private String id; // transactionId vindo da AbacatePay
+
+    @Column(nullable = false)
+    private String customerId;
+
+    @Column(nullable = false)
+    private String planTier;
+
+    @Column(nullable = false)
+    private String billingPeriod;
+
+    @Column(nullable = false)
+    private Integer amount; // em centavos
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private EnumStatus status;
+
+    @Column(name = "payment_url", nullable = false)
+    private String paymentUrl;
+
+    @Column(name = "created_at", nullable = false)
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
+}
+```
+
+### 2.4 Serviços de Pagamento
+
+#### 2.4.1 Serviço de Pagamento Principal
 
 ```java
 @Service
@@ -138,25 +214,122 @@ public class Subscription {
 public class PaymentService {
     private final SubscriptionRepository subscriptionRepository;
     private final UserRepository userRepository;
-    private final Stripe stripe;
+    private final StripeService stripeService;
+    private final AbacatePayService abacatePayService;
+    private final PixTransactionRepository pixTransactionRepository;
     
     // Métodos principais:
     // - createSubscription(SubscriptionRequest request, Long userId)
+    // - createPixSubscription(PixSubscriptionRequest request, Long userId)
     // - getSubscriptionById(Long id, Long userId)
     // - getCurrentSubscription(Long userId)
     // - cancelSubscription(Long id, Long userId)
-    // - processWebhookEvent(String payload, String signature)
+    // - getPixTransactionStatus(String transactionId, Long userId)
     
-    // Métodos auxiliares para processamento de eventos:
-    // - handlePaymentIntentSucceeded(Event event)
-    // - handlePaymentIntentFailed(Event event)
-    // - handleSubscriptionDeleted(Event event)
-    // - handleInvoicePaymentSucceeded(Event event)
-    // - handleInvoicePaymentFailed(Event event)
+    // Implementação do método de criação de assinatura com PIX
+    public PixTransactionDTO createPixSubscription(PixSubscriptionRequest request, Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+        
+        // Criar ou recuperar cliente no AbacatePay
+        String customerId;
+        if (user.getAbacatepayCustomerId() == null) {
+            customerId = abacatePayService.createCustomer(
+                user.getName(), 
+                user.getEmail(), 
+                user.getTaxId()
+            );
+            user.setAbacatepayCustomerId(customerId);
+            userRepository.save(user);
+        } else {
+            customerId = user.getAbacatepayCustomerId();
+        }
+        
+        // Calcular valor com base no plano e período
+        Integer amount = calculateAmount(request.getPlanTier(), request.getBillingPeriod());
+        
+        // Criar transação PIX
+        PixTransaction pixTransaction = abacatePayService.createPixPayment(
+            customerId,
+            request.getPlanTier(),
+            request.getBillingPeriod(),
+            amount
+        );
+        
+        // Criar assinatura pendente
+        Subscription subscription = Subscription.builder()
+            .userId(userId)
+            .subscriptionType(SubscriptionType.valueOf(request.getPlanTier()))
+            .startDate(LocalDateTime.now())
+            .endDate(calculateEndDate(request.getBillingPeriod()))
+            .abacatepayCustomerId(customerId)
+            .paymentMethod(PaymentMethodType.PIX)
+            .status("PENDING")
+            .autoRenew(false) // PIX não suporta renovação automática
+            .createdAt(LocalDateTime.now())
+            .build();
+        
+        subscriptionRepository.save(subscription);
+        
+        return new PixTransactionDTO(
+            pixTransaction.getId(),
+            pixTransaction.getPaymentUrl(),
+            pixTransaction.getStatus().toString(),
+            pixTransaction.getAmount()
+        );
+    }
 }
 ```
 
-### 2.5 Controlador de Pagamento
+#### 2.4.2 Serviço Stripe
+
+```java
+@Service
+public class StripeService {
+    @Value("${stripe.api.key}")
+    private String stripeApiKey;
+    
+    @PostConstruct
+    public void init() {
+        Stripe.apiKey = stripeApiKey;
+    }
+    
+    // Métodos para integração com Stripe
+    // - createCustomer(String email, String name)
+    // - createPaymentIntent(Long amount, String currency, String customerId)
+    // - createSubscription(String customerId, String priceId)
+    // - processWebhookEvent(String payload, String signature)
+}
+```
+
+#### 2.4.3 Serviço AbacatePay
+
+```java
+@Service
+public class AbacatePayService {
+    @Value("${abacatepay.api.key}")
+    private String apiKey;
+    
+    @Value("${abacatepay.api.secret}")
+    private String apiSecret;
+    
+    @Value("${abacatepay.api.url}")
+    private String apiUrl;
+    
+    private final WebClient webClient;
+    private final PixTransactionRepository pixTransactionRepository;
+    
+    // Métodos para integração com AbacatePay
+    // - createCustomer(String name, String email, String taxId)
+    // - createPixPayment(String customerId, String planTier, String billingPeriod, Integer amount)
+    // - getPixStatus(String transactionId)
+    // - processWebhookEvent(String payload, String signature)
+}
+```
+
+### 2.5 Controladores de Pagamento
+
+#### 2.5.1 Controlador Principal de Pagamento
 
 ```java
 @RestController
@@ -165,11 +338,46 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     // Endpoints:
-    // POST /api/payments/subscribe - Criar assinatura
+    // POST /api/payments/subscribe - Criar assinatura com cartão
+    // POST /api/payments/subscribe/pix - Criar assinatura com PIX
     // GET /api/payments/subscriptions/current - Obter assinatura atual
     // GET /api/payments/subscriptions/{id} - Obter assinatura por ID
     // POST /api/payments/subscriptions/{id}/cancel - Cancelar assinatura
-    // POST /api/payments/webhook - Processar eventos do webhook
+    // GET /api/payments/pix/status/{transactionId} - Verificar status de transação PIX
+}
+```
+
+#### 2.5.2 Controladores de Webhook
+
+```java
+@RestController
+@RequestMapping("/api/webhooks/stripe")
+public class StripeWebhookController {
+    private final StripeService stripeService;
+    
+    @PostMapping
+    public ResponseEntity<String> handleStripeWebhook(
+            @RequestHeader("Stripe-Signature") String signature,
+            @RequestBody String payload) {
+        // Processar webhook do Stripe
+        stripeService.processWebhookEvent(payload, signature);
+        return ResponseEntity.ok().build();
+    }
+}
+
+@RestController
+@RequestMapping("/api/webhooks/abacatepay")
+public class AbacatePayWebhookController {
+    private final AbacatePayService abacatePayService;
+    
+    @PostMapping("/payment")
+    public ResponseEntity<String> handleAbacatePayWebhook(
+            @RequestHeader("X-Webhook-Secret") String signature,
+            @RequestBody String payload) {
+        // Processar webhook do AbacatePay
+        abacatePayService.processWebhookEvent(payload, signature);
+        return ResponseEntity.ok().build();
+    }
 }
 ```
 
@@ -181,34 +389,104 @@ public class PaymentController {
 npm install @stripe/stripe-js @stripe/react-stripe-js
 ```
 
-### 3.2 Provedor do Stripe
+### 3.2 Contexto de Pagamento
 
 ```tsx
-// src/contexts/StripeContext.tsx
-import React from 'react';
+// src/contexts/PaymentContext.tsx
+import React, { createContext, useContext, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLIC_KEY!);
 
-export const StripeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+type PaymentMethod = 'CREDIT_CARD' | 'PIX';
+
+interface PaymentContextType {
+  paymentMethod: PaymentMethod;
+  setPaymentMethod: (method: PaymentMethod) => void;
+  pixQrCodeUrl: string | null;
+  setPixQrCodeUrl: (url: string | null) => void;
+  pixTransactionId: string | null;
+  setPixTransactionId: (id: string | null) => void;
+}
+
+const PaymentContext = createContext<PaymentContextType | undefined>(undefined);
+
+export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CREDIT_CARD');
+  const [pixQrCodeUrl, setPixQrCodeUrl] = useState<string | null>(null);
+  const [pixTransactionId, setPixTransactionId] = useState<string | null>(null);
+
   return (
-    <Elements stripe={stripePromise}>
-      {children}
-    </Elements>
+    <PaymentContext.Provider value={{
+      paymentMethod,
+      setPaymentMethod,
+      pixQrCodeUrl,
+      setPixQrCodeUrl,
+      pixTransactionId,
+      setPixTransactionId
+    }}>
+      <Elements stripe={stripePromise}>
+        {children}
+      </Elements>
+    </PaymentContext.Provider>
   );
+};
+
+export const usePayment = () => {
+  const context = useContext(PaymentContext);
+  if (context === undefined) {
+    throw new Error('usePayment must be used within a PaymentProvider');
+  }
+  return context;
 };
 ```
 
-### 3.3 Componente de Checkout
+### 3.3 Componente de Seleção de Método de Pagamento
 
 ```tsx
-// src/components/SubscriptionCheckout.tsx
+// src/components/PaymentMethodSelector.tsx
+import React from 'react';
+import { usePayment } from '../contexts/PaymentContext';
+
+const PaymentMethodSelector: React.FC = () => {
+  const { paymentMethod, setPaymentMethod } = usePayment();
+  
+  return (
+    <div className="payment-method-selector">
+      <h3>Selecione o método de pagamento</h3>
+      <div className="payment-methods">
+        <div
+          className={`payment-method ${paymentMethod === 'CREDIT_CARD' ? 'selected' : ''}`}
+          onClick={() => setPaymentMethod('CREDIT_CARD')}
+        >
+          <i className="icon-credit-card"></i>
+          <span>Cartão de Crédito</span>
+        </div>
+        <div
+          className={`payment-method ${paymentMethod === 'PIX' ? 'selected' : ''}`}
+          onClick={() => setPaymentMethod('PIX')}
+        >
+          <i className="icon-pix"></i>
+          <span>PIX</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PaymentMethodSelector;
+```
+
+### 3.4 Componente de Checkout com Cartão de Crédito
+
+```tsx
+// src/components/CreditCardCheckout.tsx
 import React, { useState } from 'react';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import paymentService from '../services/payment.service';
 
-const SubscriptionCheckout: React.FC<{ subscriptionType: string }> = ({ subscriptionType }) => {
+const CreditCardCheckout: React.FC<{ subscriptionType: string }> = ({ subscriptionType }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -253,9 +531,120 @@ const SubscriptionCheckout: React.FC<{ subscriptionType: string }> = ({ subscrip
     </form>
   );
 };
+
+export default CreditCardCheckout;
 ```
 
-## 4. Fluxo de Pagamento
+### 3.5 Componente de Checkout com PIX
+
+```tsx
+// src/components/PixCheckout.tsx
+import React, { useState } from 'react';
+import { usePayment } from '../contexts/PaymentContext';
+import paymentService from '../services/payment.service';
+
+const PixCheckout: React.FC<{ subscriptionType: string }> = ({ subscriptionType }) => {
+  const { setPixQrCodeUrl, setPixTransactionId } = usePayment();
+  const [loading, setLoading] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
+  
+  const handleGeneratePixQrCode = async () => {
+    setLoading(true);
+    
+    try {
+      // Criar assinatura com PIX
+      const response = await paymentService.createPixSubscription({
+        planTier: subscriptionType,
+        billingPeriod: 'MONTHLY',
+      });
+      
+      setQrCodeUrl(response.paymentUrl);
+      setTransactionId(response.id);
+      
+      // Atualizar contexto
+      setPixQrCodeUrl(response.paymentUrl);
+      setPixTransactionId(response.id);
+      
+      // Iniciar polling de status
+      startPollingStatus(response.id);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const startPollingStatus = (id: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const status = await paymentService.getPixStatus(id);
+        if (status === 'PAID') {
+          clearInterval(interval);
+          // Redirecionar para página de sucesso
+        } else if (status === 'EXPIRED' || status === 'CANCELLED') {
+          clearInterval(interval);
+          // Exibir mensagem de erro
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }, 5000); // Verificar a cada 5 segundos
+  };
+  
+  return (
+    <div className="pix-checkout">
+      {!qrCodeUrl ? (
+        <button 
+          onClick={handleGeneratePixQrCode} 
+          disabled={loading}
+        >
+          {loading ? 'Gerando QR Code...' : 'Gerar QR Code PIX'}
+        </button>
+      ) : (
+        <div className="pix-qrcode-container">
+          <h4>Escaneie o QR Code para pagar</h4>
+          <img src={qrCodeUrl} alt="QR Code PIX" />
+          <p>Após o pagamento, você será redirecionado automaticamente.</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PixCheckout;
+```
+
+### 3.6 Componente de Checkout Unificado
+
+```tsx
+// src/components/SubscriptionCheckout.tsx
+import React from 'react';
+import { usePayment } from '../contexts/PaymentContext';
+import PaymentMethodSelector from './PaymentMethodSelector';
+import CreditCardCheckout from './CreditCardCheckout';
+import PixCheckout from './PixCheckout';
+
+const SubscriptionCheckout: React.FC<{ subscriptionType: string }> = ({ subscriptionType }) => {
+  const { paymentMethod } = usePayment();
+  
+  return (
+    <div className="subscription-checkout">
+      <PaymentMethodSelector />
+      
+      {paymentMethod === 'CREDIT_CARD' ? (
+        <CreditCardCheckout subscriptionType={subscriptionType} />
+      ) : (
+        <PixCheckout subscriptionType={subscriptionType} />
+      )}
+    </div>
+  );
+};
+```
+
+## 4. Fluxos de Pagamento
+
+### 4.1 Fluxo de Pagamento com Cartão de Crédito (Stripe)
 
 ```mermaid
 sequenceDiagram
@@ -266,6 +655,7 @@ sequenceDiagram
     
     U->>F: Seleciona plano
     F->>F: Exibe formulário de pagamento
+    U->>F: Seleciona Cartão de Crédito
     U->>F: Insere dados do cartão
     F->>S: Cria PaymentMethod
     S-->>F: Retorna PaymentMethod
@@ -281,6 +671,39 @@ sequenceDiagram
     Note over S,B: Webhook: payment_intent.succeeded
     S->>B: Notifica pagamento bem-sucedido
     B->>B: Atualiza status da assinatura
+```
+
+### 4.2 Fluxo de Pagamento com PIX (AbacatePay)
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant F as Frontend
+    participant B as Backend
+    participant A as AbacatePay API
+    
+    U->>F: Seleciona plano
+    F->>F: Exibe formulário de pagamento
+    U->>F: Seleciona PIX
+    F->>B: Solicita QR Code PIX (POST /payments/subscribe/pix)
+    B->>A: Cria Customer
+    A-->>B: Retorna Customer ID
+    B->>A: Gera QR Code PIX
+    A-->>B: Retorna dados do QR Code
+    B->>B: Salva transação PIX no banco
+    B-->>F: Retorna URL do QR Code
+    F-->>U: Exibe QR Code PIX
+    
+    Note over U,A: Usuário paga via app bancário
+    
+    Note over A,B: Webhook: pix.paid
+    A->>B: Notifica pagamento PIX
+    B->>B: Atualiza status da transação
+    B->>B: Ativa assinatura
+    
+    F->>B: Polling de status (GET /payments/pix/status/{id})
+    B-->>F: Retorna status atualizado
+    F-->>U: Exibe confirmação de pagamento
 ```
 
 ## 5. Considerações de Segurança
@@ -300,7 +723,9 @@ sequenceDiagram
 
 ## 6. Testes
 
-### 6.1 Cartões de Teste
+### 6.1 Testes de Pagamento com Cartão (Stripe)
+
+#### 6.1.1 Cartões de Teste
 
 | Número do Cartão | Descrição |
 |------------------|-----------|
@@ -308,13 +733,61 @@ sequenceDiagram
 | 4000 0000 0000 0002 | Cartão recusado |
 | 4000 0000 0000 3220 | Requer autenticação 3D Secure |
 
-### 6.2 Testando Webhooks
+#### 6.1.2 Testando Webhooks do Stripe
 
 Use o Stripe CLI para testar webhooks localmente:
 
 ```bash
-stripe listen --forward-to http://localhost:8080/api/payments/webhook
+stripe listen --forward-to http://localhost:8080/api/webhooks/stripe
 ```
+
+### 6.2 Testes de Pagamento com PIX (AbacatePay)
+
+#### 6.2.1 Ambiente de Sandbox
+
+O AbacatePay fornece um ambiente de sandbox para testes. Para utilizá-lo:
+
+1. Configure suas chaves de API para o ambiente de sandbox:
+   ```properties
+   abacatepay.api.url=https://sandbox.abacatepay.com
+   abacatepay.api.key=sua_chave_sandbox
+   abacatepay.api.secret=seu_segredo_sandbox
+   ```
+
+2. Use o CPF de teste `123.456.789-00` para criar clientes no ambiente de sandbox.
+
+#### 6.2.2 Simulando Pagamentos PIX
+
+Para simular um pagamento PIX no ambiente de sandbox:
+
+1. Gere um QR Code PIX normalmente através da API
+2. Use a API de simulação para "pagar" o PIX:
+   ```bash
+   curl -X POST \
+     -H "X-API-Key: sua_chave_sandbox" \
+     -H "X-API-Secret: seu_segredo_sandbox" \
+     -H "Content-Type: application/json" \
+     -d '{"status": "PAID"}' \
+     https://sandbox.abacatepay.com/pix/simulate/{transaction_id}
+   ```
+
+3. O webhook será acionado automaticamente após a simulação
+
+#### 6.2.3 Testando Webhooks do AbacatePay
+
+Para testar webhooks do AbacatePay localmente:
+
+1. Use uma ferramenta como [ngrok](https://ngrok.com/) para expor seu servidor local:
+   ```bash
+   ngrok http 8080
+   ```
+
+2. Configure o URL do webhook no dashboard do AbacatePay sandbox para o URL fornecido pelo ngrok:
+   ```
+   https://seu-ngrok-url.ngrok.io/api/webhooks/abacatepay/payment
+   ```
+
+3. Simule um pagamento PIX conforme descrito acima para acionar o webhook
 
 ## Próximos Passos
 

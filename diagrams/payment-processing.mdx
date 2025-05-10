@@ -16,7 +16,7 @@ Este diagrama ilustra o processo completo de processamento de pagamentos e geren
     </p>
     <ul>
       <li>Processamento de assinaturas para diferentes planos</li>
-      <li>Integração com gateway de pagamento (Stripe)</li>
+      <li>Integração com gateways de pagamento (Stripe para cartão de crédito e AbacatePay para PIX)</li>
       <li>Gerenciamento de ciclos de cobrança</li>
       <li>Renovação automática de assinaturas</li>
       <li>Cancelamento e reembolso de assinaturas</li>
@@ -39,35 +39,62 @@ sequenceDiagram
     participant U as Usuário
     participant F as Frontend
     participant P as Payment Service
-    participant S as Stripe API
+    participant S as Gateway API
     participant DB as Banco de Dados
 
     U->>F: Seleciona plano
     F->>F: Exibe formulário de pagamento
-    U->>F: Insere dados de pagamento
+    U->>F: Seleciona método de pagamento
+    
+    alt Cartão de Crédito (Stripe)
+        U->>F: Insere dados do cartão
+        F->>S: Cria PaymentMethod
+        S-->>F: Retorna PaymentMethod
+    else PIX (AbacatePay)
+        F->>P: Solicita QR Code PIX
+    end
+    
     U->>F: Confirma assinatura
     
     F->>P: POST /payments/subscribe
     P->>P: Valida dados
     P->>DB: Cria assinatura (status: PENDING)
     
-    P->>S: Cria cliente Stripe
-    S-->>P: ID do cliente
-    P->>S: Cria método de pagamento
-    S-->>P: ID do método de pagamento
-    P->>S: Cria assinatura
-    
-    alt Pagamento bem-sucedido
-        S-->>P: Confirmação de pagamento
+    alt Cartão de Crédito (Stripe)
+        P->>S: Cria cliente Stripe
+        S-->>P: ID do cliente
+        P->>S: Anexa PaymentMethod ao Customer
+        P->>S: Cria assinatura
+        
+        alt Pagamento bem-sucedido
+            S-->>P: Confirmação de pagamento
+            P->>DB: Atualiza status para ACTIVE
+            P->>DB: Atualiza dados do usuário
+            P-->>F: 200 OK (SubscriptionDTO)
+            F-->>U: Exibe confirmação
+        else Pagamento falhou
+            S-->>P: Erro de pagamento
+            P->>DB: Atualiza status para FAILED
+            P-->>F: 400 Bad Request
+            F-->>U: Exibe erro
+        end
+    else PIX (AbacatePay)
+        P->>S: Cria cliente AbacatePay
+        S-->>P: ID do cliente
+        P->>S: Gera QR Code PIX
+        S-->>P: Dados do QR Code
+        P->>DB: Salva transação PIX
+        P-->>F: 200 OK (PixTransactionDTO)
+        F-->>U: Exibe QR Code PIX
+        
+        Note over U,S: Usuário paga via app bancário
+        
+        S->>P: Webhook: Notificação de pagamento
         P->>DB: Atualiza status para ACTIVE
         P->>DB: Atualiza dados do usuário
-        P-->>F: 200 OK (SubscriptionDTO)
+        F->>P: Polling de status
+        P-->>F: Status atualizado
         F-->>U: Exibe confirmação
-    else Pagamento falhou
-        S-->>P: Erro de pagamento
-        P->>DB: Atualiza status para FAILED
-        P-->>F: 400 Bad Request
-        F-->>U: Exibe erro
     end
 ```
 

@@ -1,0 +1,520 @@
+---
+title: 'Integração com AbacatePay'
+description: 'Documentação para integração com AbacatePay para pagamentos PIX'
+---
+
+# Integração com AbacatePay
+
+O AbacatePay é o gateway de pagamento utilizado pelo FitLocus para processar pagamentos via PIX, oferecendo uma solução rápida e segura para transações financeiras no Brasil.
+
+## Visão Geral
+
+<Frame>
+  <div style={{ padding: '24px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+    <p>
+      A integração com o AbacatePay permite:
+    </p>
+    <ul>
+      <li>Geração de QR Codes PIX para pagamentos</li>
+      <li>Gerenciamento de clientes</li>
+      <li>Processamento de pagamentos instantâneos</li>
+      <li>Notificações via webhook para atualizações de status</li>
+    </ul>
+  </div>
+</Frame>
+
+## Configuração Inicial
+
+### Requisitos
+
+Para integrar com o AbacatePay, você precisará:
+
+1. Criar uma conta no [AbacatePay](https://abacatepay.com)
+2. Obter suas credenciais de API (chave de API e segredo)
+3. Configurar um endpoint de webhook para receber notificações
+
+### Configuração no Backend
+
+Adicione as seguintes configurações ao seu arquivo `application.properties`:
+
+```properties
+# Configurações do AbacatePay
+abacatepay.api.key=sua_chave_api
+abacatepay.api.secret=seu_segredo_api
+abacatepay.webhook.secret=seu_segredo_webhook
+abacatepay.environment=sandbox # ou production para ambiente de produção
+```
+
+## Fluxo de Pagamento PIX
+
+O fluxo de pagamento PIX com AbacatePay segue estas etapas:
+
+1. **Criação de Cliente**: Primeiro, crie um cliente no AbacatePay
+2. **Geração de QR Code**: Gere um QR Code PIX para o pagamento
+3. **Pagamento pelo Usuário**: O usuário escaneia o QR Code e realiza o pagamento
+4. **Notificação via Webhook**: O AbacatePay notifica sua aplicação sobre o status do pagamento
+5. **Atualização do Status**: Sua aplicação atualiza o status da transação
+
+## API de Clientes
+
+### Criar Cliente
+
+```
+POST /api/abacatepay/customers
+```
+
+Este endpoint cria um novo cliente no AbacatePay.
+
+#### Parâmetros da Requisição
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| name | string | Sim | Nome completo do cliente |
+| email | string | Sim | Email do cliente |
+| taxId | string | Sim | CPF ou CNPJ do cliente (apenas números) |
+| phone | string | Não | Telefone do cliente |
+
+#### Exemplo de Requisição
+
+```json
+{
+  "name": "Maria Silva",
+  "email": "maria.silva@exemplo.com",
+  "taxId": "12345678900",
+  "phone": "11999998888"
+}
+```
+
+#### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "id": "cus_123456789",
+  "name": "Maria Silva",
+  "email": "maria.silva@exemplo.com",
+  "taxId": "12345678900",
+  "phone": "11999998888",
+  "createdAt": "2023-05-15T14:30:00Z"
+}
+```
+
+## API de Pagamentos PIX
+
+### Gerar QR Code PIX
+
+```
+POST /api/abacatepay/pix
+```
+
+Este endpoint gera um QR Code PIX para pagamento.
+
+#### Parâmetros da Requisição
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| customerId | string | Sim | ID do cliente no AbacatePay |
+| amount | number | Sim | Valor do pagamento (em reais) |
+| description | string | Sim | Descrição do pagamento |
+| expiresIn | number | Não | Tempo de expiração em minutos (padrão: 60) |
+| callbackUrl | string | Não | URL para redirecionamento após pagamento |
+
+#### Exemplo de Requisição
+
+```json
+{
+  "customerId": "cus_123456789",
+  "amount": 99.90,
+  "description": "Assinatura Plano Premium Mensal",
+  "expiresIn": 120,
+  "callbackUrl": "https://fitlocus.com/payment/success"
+}
+```
+
+#### Resposta de Sucesso
+
+**Código:** 201 Created
+
+```json
+{
+  "id": "pix_123456789",
+  "customerId": "cus_123456789",
+  "amount": 99.90,
+  "description": "Assinatura Plano Premium Mensal",
+  "status": "PENDING",
+  "qrCodeUrl": "https://abacatepay.com/qrcode/pix_123456789.png",
+  "qrCodeText": "00020101021226800014br.gov.bcb.pix2558abacatepay.com/pix/v2/12345678904000053039865802BR5925ABACATE PAY PAGAMENTOS SA6009SAO PAULO62070503***6304E2CA",
+  "expiresAt": "2023-05-15T16:30:00Z",
+  "createdAt": "2023-05-15T14:30:00Z"
+}
+```
+
+### Verificar Status do Pagamento
+
+```
+GET /api/abacatepay/pix/{id}
+```
+
+Este endpoint verifica o status de um pagamento PIX.
+
+#### Parâmetros de URL
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| id | string | ID da transação PIX |
+
+#### Resposta de Sucesso
+
+**Código:** 200 OK
+
+```json
+{
+  "id": "pix_123456789",
+  "customerId": "cus_123456789",
+  "amount": 99.90,
+  "description": "Assinatura Plano Premium Mensal",
+  "status": "PAID", // PENDING, PAID, EXPIRED, CANCELLED
+  "paidAt": "2023-05-15T14:45:00Z",
+  "qrCodeUrl": "https://abacatepay.com/qrcode/pix_123456789.png",
+  "qrCodeText": "00020101021226800014br.gov.bcb.pix2558abacatepay.com/pix/v2/12345678904000053039865802BR5925ABACATE PAY PAGAMENTOS SA6009SAO PAULO62070503***6304E2CA",
+  "expiresAt": "2023-05-15T16:30:00Z",
+  "createdAt": "2023-05-15T14:30:00Z"
+}
+```
+
+## Implementação no Backend
+
+### Serviço de Cliente AbacatePay
+
+```java
+@Service
+public class AbacatepayCustomerService {
+    private final RestTemplate restTemplate;
+    private final String apiKey;
+    private final String apiUrl;
+    
+    public AbacatepayCustomerService(
+            @Value("${abacatepay.api.key}") String apiKey,
+            @Value("${abacatepay.environment}") String environment) {
+        this.apiKey = apiKey;
+        this.apiUrl = environment.equals("production") 
+            ? "https://api.abacatepay.com/v1" 
+            : "https://sandbox.api.abacatepay.com/v1";
+        
+        this.restTemplate = new RestTemplate();
+    }
+    
+    public AbacatePayCustomer createCustomer(CustomerRequest request) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + apiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        HttpEntity<CustomerRequest> entity = new HttpEntity<>(request, headers);
+        
+        ResponseEntity<AbacatePayCustomer> response = restTemplate.exchange(
+                apiUrl + "/customers",
+                HttpMethod.POST,
+                entity,
+                AbacatePayCustomer.class
+        );
+        
+        return response.getBody();
+    }
+    
+    public AbacatePayCustomer getCustomer(String customerId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + apiKey);
+        
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        
+        ResponseEntity<AbacatePayCustomer> response = restTemplate.exchange(
+                apiUrl + "/customers/" + customerId,
+                HttpMethod.GET,
+                entity,
+                AbacatePayCustomer.class
+        );
+        
+        return response.getBody();
+    }
+}
+```
+
+### Serviço de Pagamento PIX
+
+```java
+@Service
+public class AbacatepayPixService {
+    private final RestTemplate restTemplate;
+    private final String apiKey;
+    private final String apiUrl;
+    private final PixTransactionRepository pixTransactionRepository;
+    
+    public AbacatepayPixService(
+            @Value("${abacatepay.api.key}") String apiKey,
+            @Value("${abacatepay.environment}") String environment,
+            PixTransactionRepository pixTransactionRepository) {
+        this.apiKey = apiKey;
+        this.apiUrl = environment.equals("production") 
+            ? "https://api.abacatepay.com/v1" 
+            : "https://sandbox.api.abacatepay.com/v1";
+        this.pixTransactionRepository = pixTransactionRepository;
+        
+        this.restTemplate = new RestTemplate();
+    }
+    
+    public PixTransaction createPixPayment(PixPaymentRequest request, Long userId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + apiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        HttpEntity<PixPaymentRequest> entity = new HttpEntity<>(request, headers);
+        
+        ResponseEntity<AbacatePayPixResponse> response = restTemplate.exchange(
+                apiUrl + "/pix",
+                HttpMethod.POST,
+                entity,
+                AbacatePayPixResponse.class
+        );
+        
+        AbacatePayPixResponse pixResponse = response.getBody();
+        
+        // Salvar transação no banco de dados
+        PixTransaction transaction = PixTransaction.builder()
+                .id(pixResponse.getId())
+                .userId(userId)
+                .abacatePayCustomerId(request.getCustomerId())
+                .amount(request.getAmount())
+                .description(request.getDescription())
+                .status("PENDING")
+                .qrCodeUrl(pixResponse.getQrCodeUrl())
+                .qrCodeText(pixResponse.getQrCodeText())
+                .expiresAt(pixResponse.getExpiresAt())
+                .build();
+        
+        return pixTransactionRepository.save(transaction);
+    }
+    
+    public PixTransaction getPixPayment(String pixId) {
+        return pixTransactionRepository.findById(pixId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transação PIX não encontrada"));
+    }
+    
+    public PixTransaction updatePixStatus(String pixId, String status) {
+        PixTransaction transaction = getPixPayment(pixId);
+        transaction.setStatus(status);
+        
+        if (status.equals("PAID")) {
+            transaction.setPaidAt(LocalDateTime.now());
+        }
+        
+        return pixTransactionRepository.save(transaction);
+    }
+}
+```
+
+### Controlador de Webhook
+
+```java
+@RestController
+@RequestMapping("/api/webhooks/abacatepay")
+public class AbacatePayWebhookController {
+    private final AbacatepayPixService pixService;
+    private final String webhookSecret;
+    
+    public AbacatePayWebhookController(
+            AbacatepayPixService pixService,
+            @Value("${abacatepay.webhook.secret}") String webhookSecret) {
+        this.pixService = pixService;
+        this.webhookSecret = webhookSecret;
+    }
+    
+    @PostMapping("/pix")
+    public ResponseEntity<Void> handlePixWebhook(
+            @RequestHeader("X-Webhook-Secret") String receivedSecret,
+            @RequestBody Map<String, Object> payload) {
+        // Validar o segredo do webhook
+        if (!webhookSecret.equals(receivedSecret)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        // Processar o evento
+        String eventType = (String) payload.get("event");
+        Map<String, Object> data = (Map<String, Object>) payload.get("data");
+        String pixId = (String) data.get("id");
+        
+        switch (eventType) {
+            case "pix.paid":
+                pixService.updatePixStatus(pixId, "PAID");
+                // Ativar assinatura ou liberar produto
+                break;
+            case "pix.expired":
+                pixService.updatePixStatus(pixId, "EXPIRED");
+                break;
+            case "pix.cancelled":
+                pixService.updatePixStatus(pixId, "CANCELLED");
+                break;
+        }
+        
+        return ResponseEntity.ok().build();
+    }
+}
+```
+
+## Implementação no Frontend
+
+### Componente de Checkout PIX
+
+```tsx
+// src/components/PixCheckout.tsx
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+interface PixCheckoutProps {
+  subscriptionType: string;
+  customerId: string;
+  amount: number;
+}
+
+const PixCheckout: React.FC<PixCheckoutProps> = ({ subscriptionType, customerId, amount }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pixData, setPixData] = useState<any>(null);
+  const [status, setStatus] = useState<string>('PENDING');
+  
+  const generatePixQrCode = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await axios.post('/api/abacatepay/pix', {
+        customerId,
+        amount,
+        description: `Assinatura Plano ${subscriptionType}`,
+        expiresIn: 120
+      });
+      
+      setPixData(response.data);
+      startStatusCheck(response.data.id);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao gerar QR Code PIX');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const startStatusCheck = (pixId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await axios.get(`/api/abacatepay/pix/${pixId}`);
+        setStatus(response.data.status);
+        
+        if (response.data.status === 'PAID') {
+          clearInterval(interval);
+          // Redirecionar para página de sucesso
+          window.location.href = '/subscription/success';
+        } else if (['EXPIRED', 'CANCELLED'].includes(response.data.status)) {
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.error('Erro ao verificar status do PIX', err);
+      }
+    }, 5000); // Verificar a cada 5 segundos
+    
+    // Limpar intervalo após 10 minutos (tempo máximo de espera)
+    setTimeout(() => clearInterval(interval), 10 * 60 * 1000);
+  };
+  
+  useEffect(() => {
+    generatePixQrCode();
+  }, []);
+  
+  return (
+    <div className="pix-checkout">
+      <h2>Pagamento via PIX</h2>
+      
+      {loading && <p>Gerando QR Code PIX...</p>}
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      {pixData && (
+        <div className="pix-container">
+          <div className="qrcode-container">
+            <img src={pixData.qrCodeUrl} alt="QR Code PIX" />
+          </div>
+          
+          <div className="pix-instructions">
+            <h3>Instruções de Pagamento</h3>
+            <ol>
+              <li>Abra o aplicativo do seu banco</li>
+              <li>Acesse a área PIX</li>
+              <li>Escaneie o QR Code ou copie o código abaixo</li>
+              <li>Confirme as informações e finalize o pagamento</li>
+            </ol>
+            
+            <div className="pix-code">
+              <p>Código PIX:</p>
+              <textarea readOnly value={pixData.qrCodeText} />
+              <button onClick={() => navigator.clipboard.writeText(pixData.qrCodeText)}>
+                Copiar Código
+              </button>
+            </div>
+            
+            <div className="pix-details">
+              <p><strong>Valor:</strong> R$ {amount.toFixed(2)}</p>
+              <p><strong>Descrição:</strong> {pixData.description}</p>
+              <p><strong>Expira em:</strong> {new Date(pixData.expiresAt).toLocaleString()}</p>
+            </div>
+            
+            <div className={`pix-status status-${status.toLowerCase()}`}>
+              <p>Status: {
+                status === 'PENDING' ? 'Aguardando Pagamento' :
+                status === 'PAID' ? 'Pagamento Confirmado' :
+                status === 'EXPIRED' ? 'QR Code Expirado' :
+                status === 'CANCELLED' ? 'Pagamento Cancelado' : status
+              }</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PixCheckout;
+```
+
+## Considerações de Segurança
+
+1. **Validação de Webhooks**:
+   - Sempre valide o segredo do webhook para garantir que a requisição é legítima
+   - Implemente HTTPS para todas as comunicações
+
+2. **Validação de Dados**:
+   - Valide todos os dados de entrada, especialmente CPF/CNPJ
+   - Implemente proteção contra ataques de injeção
+
+3. **Idempotência**:
+   - Implemente idempotência para evitar processamento duplicado de eventos
+   - Use identificadores únicos para transações
+
+## Testes
+
+### Ambiente de Sandbox
+
+O AbacatePay fornece um ambiente de sandbox para testes:
+
+1. Use o endpoint `https://sandbox.api.abacatepay.com/v1`
+2. Obtenha credenciais de teste no dashboard do AbacatePay
+3. Para simular pagamentos, use o endpoint de simulação:
+
+```
+POST /api/abacatepay/pix/{id}/simulate-payment
+```
+
+## Próximos Passos
+
+- [Documentação da API de Pagamentos](/api-reference/payments/overview)
+- [Webhooks de Pagamento](/api-reference/payments/webhook)
+- [Integração de Gateway de Pagamento](/tutorials/integrate-payment-gateway)
+- [Diagramas de Fluxo de Pagamento](/diagrams/payment-processing)

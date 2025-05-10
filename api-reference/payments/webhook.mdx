@@ -1,0 +1,157 @@
+---
+title: 'Webhooks de Pagamento'
+description: 'Documentação dos webhooks de pagamento do FitLocus'
+---
+
+# Webhooks de Pagamento
+
+Os webhooks são utilizados para receber notificações assíncronas sobre eventos de pagamento, permitindo que sua aplicação reaja a mudanças de status sem precisar consultar constantemente a API.
+
+## Visão Geral
+
+O FitLocus implementa webhooks para os dois gateways de pagamento suportados:
+
+<CardGroup cols={2}>
+  <Card title="Stripe" icon="credit-card">
+    Webhooks para processamento de pagamentos com cartão de crédito.
+  </Card>
+  <Card title="AbacatePay" icon="qrcode">
+    Webhooks para processamento de pagamentos via PIX.
+  </Card>
+</CardGroup>
+
+## Configuração de Webhooks
+
+### AbacatePay
+
+Para receber notificações do AbacatePay, é necessário configurar um endpoint de webhook no dashboard da AbacatePay e definir o segredo de webhook nas configurações da aplicação.
+
+```properties
+# application.properties
+abacatepay.webhook.secret=seu_segredo_webhook
+```
+
+O endpoint para receber webhooks do AbacatePay é:
+
+```
+/webhooks/abacatepay/payment
+```
+
+### Stripe
+
+Para o Stripe, é necessário configurar o webhook no dashboard do Stripe e definir o segredo de webhook nas configurações da aplicação.
+
+```properties
+# application.properties
+stripe.webhook.secret=seu_segredo_webhook
+```
+
+## Eventos Suportados
+
+### AbacatePay
+
+| Evento | Descrição |
+|--------|-----------|
+| `PAID` | Pagamento PIX confirmado |
+| `PENDING` | Pagamento PIX pendente |
+| `EXPIRED` | QR Code PIX expirado |
+| `CANCELLED` | Pagamento PIX cancelado |
+
+### Stripe
+
+| Evento | Descrição |
+|--------|-----------|
+| `payment_intent.succeeded` | Pagamento com cartão confirmado |
+| `payment_intent.payment_failed` | Falha no pagamento com cartão |
+| `customer.subscription.created` | Assinatura criada |
+| `customer.subscription.updated` | Assinatura atualizada |
+| `customer.subscription.deleted` | Assinatura cancelada |
+| `invoice.payment_succeeded` | Pagamento de fatura confirmado |
+| `invoice.payment_failed` | Falha no pagamento de fatura |
+
+## Implementação de Webhook
+
+### AbacatePay Webhook
+
+```java
+@RestController
+@RequestMapping("/webhooks/abacatepay")
+public class AbacatePayWebhookController {
+
+    private final PixTransactionRepository pixTransactionRepository;
+
+    @Value("${abacatepay.webhook.secret}")
+    private String webhookSecret;
+
+    @PostMapping("/payment")
+    public ResponseEntity<Void> handlePaymentWebhook(
+            @RequestHeader("X-Webhook-Secret") String receivedSecret,
+            @RequestBody Map<String, Object> payload
+    ) {
+        // Validar o segredo do webhook
+        if (!webhookSecret.equals(receivedSecret)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // Processar o evento
+        Map<String, Object> data = (Map<String, Object>) payload.get("data");
+        String transactionId = (String) data.get("id");
+        String status = (String) data.get("status");
+
+        // Atualizar o status da transação
+        pixTransactionRepository.findById(transactionId).ifPresent(transaction -> {
+            if ("PAID".equalsIgnoreCase(status)) {
+                transaction.setStatus(EnumStatus.PAID);
+                pixTransactionRepository.save(transaction);
+                // Liberar plano ou produto
+            }
+        });
+
+        return ResponseEntity.ok().build();
+    }
+}
+```
+
+### Segurança de Webhooks
+
+Para garantir a segurança dos webhooks:
+
+1. **Validação de Segredo**: Sempre valide o segredo do webhook para garantir que a requisição é legítima.
+2. **HTTPS**: Utilize HTTPS para todas as comunicações de webhook.
+3. **Idempotência**: Implemente idempotência para evitar processamento duplicado de eventos.
+4. **Timeout**: Defina um timeout adequado para o processamento de webhooks.
+
+## Testes de Webhook
+
+### AbacatePay
+
+Para testar webhooks do AbacatePay em ambiente de desenvolvimento:
+
+1. Utilize o endpoint de simulação de pagamento:
+   ```
+   POST /pages/pix-qrcode/simulate-payment
+   ```
+
+2. Verifique o status da transação:
+   ```
+   GET /billing/status/{transactionId}
+   ```
+
+### Stripe
+
+Para testar webhooks do Stripe em ambiente de desenvolvimento:
+
+1. Utilize o Stripe CLI:
+   ```bash
+   stripe listen --forward-to http://localhost:8080/webhooks/stripe
+   ```
+
+2. Use cartões de teste para simular diferentes cenários:
+   - 4242 4242 4242 4242: Pagamento bem-sucedido
+   - 4000 0000 0000 0002: Cartão recusado
+
+## Próximos Passos
+
+- [Documentação da API de Pagamentos](/api-reference/payments/overview)
+- [Integração de Gateway de Pagamento](/tutorials/integrate-payment-gateway)
+- [Diagramas de Fluxo de Pagamento](/diagrams/payment-processing)
